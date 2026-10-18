@@ -257,29 +257,18 @@ class ArtifactRound34(TempCase):
             verify(out, F7_EPUB, F7_MANIFEST)
         self.assertEqual(caught.exception.rule_id, "E-ARTIFACT-INCOMPLETE")
 
-    def test_kill_after_the_second_rename_over_an_old_descriptor_does_not_verify(self):
-        out = self.make_f7()  # a complete artifact with the old descriptor
+    def test_a_second_write_over_an_old_artifact_is_refused_and_the_old_one_still_verifies(self):
+        out = self.make_f7()  # a complete artifact
         with open(F7_MANIFEST, encoding="utf-8") as f:
             manifest = json.load(f)
         manifest["spine"][1]["reason"] = "edited reason"
         edited = self.path("edited.manifest.json")
         with open(edited, "w", encoding="utf-8") as f:
             json.dump(manifest, f)
-        newer = build(F7_EPUB, edited)  # new records and report, so the old descriptor no longer matches them
-        real_replace = os.replace
-        calls = []
-
-        def killed_before_descriptor(src, dst):
-            calls.append(dst)
-            if len(calls) == 3:
-                raise RuntimeError("killed before the descriptor rename")
-            return real_replace(src, dst)
-
-        with mock.patch("parallelprose2.ingest.artifact.os.replace", side_effect=killed_before_descriptor):
-            with self.assertRaises(RuntimeError):
-                write(newer, out)
-        with self.assertRaises(IngestError):
-            verify(out, F7_EPUB, F7_MANIFEST)
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, edited), out)  # M40: refused before any file moves
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertEqual(verify(out, F7_EPUB, F7_MANIFEST), build(F7_EPUB, F7_MANIFEST).version_id)
 
     def test_second_run_gives_the_same_line_for_f8_f9_and_f9b(self):
         out = self.make_f7()
@@ -488,6 +477,33 @@ class ArtifactRound34(TempCase):
             write(build(F7_EPUB, F7_MANIFEST), out)
         self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
         self.assertEqual(os.listdir(out), [])
+
+    def test_failed_second_replace_leaves_no_temporary_and_no_artifact(self):
+        out = self.path("replace-fails")
+        built = build(F7_EPUB, F7_MANIFEST)
+        real_replace = os.replace
+        calls = []
+
+        def second_fails(src, dst):
+            calls.append(dst)
+            if len(calls) == 2:
+                raise OSError("replace refused")
+            return real_replace(src, dst)
+
+        with mock.patch("parallelprose2.ingest.artifact.os.replace", side_effect=second_fails):
+            with self.assertRaises(IngestError) as caught:
+                write(built, out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertEqual(os.listdir(out), [])
+
+    def test_write_into_a_directory_with_an_artifact_is_refused_and_keeps_the_old_one(self):
+        out = self.make_f7()
+        before = {name: self.read(out, name) for name in (RECORDS, REPORT, DESCRIPTOR)}
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, F7_MANIFEST), out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertEqual({name: self.read(out, name) for name in before}, before)
+        self.assertEqual(sorted(os.listdir(out)), sorted(before))
 
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET

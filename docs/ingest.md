@@ -10,23 +10,24 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d`, `7d8371c` and `dcc6088` (rounds 34, 35 and 36). Landmarks, in order:
+Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d`, `7d8371c`, `dcc6088` and `5e2a092` (rounds 34 to 37). Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M39 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M40 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
 | 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
-| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 86 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39) | Doing |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 86 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39); round 38: a failed replace leaves no temporary; 90 tests; the existing-directory rule is M40 | Doing |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: the write I/O rule is M39. Then the 4d fixtures (F6, F6b, F11, the F5 set as bytes). Then the 4d fixtures (F6, F6b,
-F11, the F5 set as bytes); the Debord printed numbers (5) are needed before 4d can say both books run.
+Next: 4c's round 38 rules are ruled and applied (M40 refuses a second write into an artifact directory).
+Then the 4d fixtures (F6, F6b, F11, the F5 set as bytes); the Debord printed numbers (5) are needed before 4d can say
+both books run.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -547,6 +548,11 @@ round 37: `E-ARTIFACT-WRITE-FAILED`, with the output path as the file. The stop 
 file, so it leaves no artifact (M15); this is the typed stop that M21's cleanup describes. A crash that is not an OS error
 (a kill) still leaves the temporaries, as M21 says. Premise: a read-only or occupied output path is an operator error that a
 reader must see by name, not a traceback. Invalidated by: a write that cannot fail with an OS error.
+
+**M40 — an artifact is written once.** Settles: what a write into a directory that already holds an artifact does. Ruled by
+Markim in round 38: it stops as `E-ARTIFACT-WRITE-FAILED` (the output path as the file) and writes nothing; the existing
+artifact is untouched. Premise: an artifact is the commit of one run, and replacing a descriptor in place would leave a
+directory whose files disagree with the old identity. Invalidated by: a need to re-publish an artifact under the same path.
 
 ## Open
 

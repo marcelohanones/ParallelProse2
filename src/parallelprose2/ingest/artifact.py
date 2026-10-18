@@ -123,6 +123,8 @@ def write(built: Built, out_dir: str) -> None:
     renamed = []
     try:
         os.makedirs(out_dir, exist_ok=True)
+        if os.path.exists(os.path.join(out_dir, DESCRIPTOR)):  # M40: an artifact is written once; nothing is replaced
+            raise OSError("an artifact already exists in this directory")
         for name, data in ((RECORDS, built.records), (REPORT, built.report), (DESCRIPTOR, built.descriptor)):
             fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=f".{name}.", suffix=".tmp")
             temporaries[name] = tmp
@@ -130,7 +132,8 @@ def write(built: Built, out_dir: str) -> None:
                 f.write(data)
         for name in (RECORDS, REPORT, DESCRIPTOR):
             target = os.path.join(out_dir, name)
-            os.replace(temporaries.pop(name), target)
+            os.replace(temporaries[name], target)  # a failed replace leaves its temporary in the dict, to be removed
+            del temporaries[name]
             renamed.append(target)
     except OSError:
         for tmp in temporaries.values():
