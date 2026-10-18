@@ -1,0 +1,20 @@
+{
+  "edition": {
+    "title": "Fixture F6",
+    "translator": null,
+    "year": null,
+    "source_file": "f6.epub"
+  },
+  "spine": [
+    {
+      "href": "cover.xhtml",
+      "class": "structural",
+      "reason": "cover, no prose"
+    },
+    {
+      "href": "ch_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "edition": {
+    "title": "Fixture F6b",
+    "translator": null,
+    "year": null,
+    "source_file": "f6b.epub"
+  },
+  "spine": [
+    {
+      "href": "cover.xhtml",
+      "class": "structural",
+      "reason": "cover, no prose"
+    },
+    {
+      "href": "ch_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    },
+    {
+      "href": "ch_d.xhtml",
+      "class": "structural",
+      "reason": "listed only in the manifest"
+    }
+  ]
+}

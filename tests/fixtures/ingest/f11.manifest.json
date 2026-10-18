@@ -1,0 +1,20 @@
+{
+  "edition": {
+    "title": "Fixture F11",
+    "translator": null,
+    "year": null,
+    "source_file": "f11.epub"
+  },
+  "spine": [
+    {
+      "href": "ch_a_z.xhtml",
+      "class": "body",
+      "chapter": "A"
+    },
+    {
+      "href": "ch_a_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    }
+  ]
+}
