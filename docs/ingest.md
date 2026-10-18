@@ -18,15 +18,15 @@ Slice 1 of this stage exists in `src/parallelprose2/ingest/` (landmark 4a, teste
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (34 tests); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening uncommitted | Done |
-| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | not started; held until DSH reviews 4a | Not started |
+| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; F3, F4 and F10 committed as bytes with tests (43 tests); no artifact (4c); uncommitted | Done |
 | 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | not started | Not started |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: 4a's round 32 hardening is done (34 tests, uncommitted); the ids are decided (M26, M27, M28) and the length check is
-approved. Then Markim's go on 4b (paragraphs and addresses).
+Next: 4b is built (43 tests, uncommitted). Then 4c, the artifact and identity: the JSONL, the report, `version_id`, and
+`content_hash`, which needs Markim's go.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).

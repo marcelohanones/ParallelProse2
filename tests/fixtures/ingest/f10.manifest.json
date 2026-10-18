@@ -1,0 +1,15 @@
+{
+  "edition": {
+    "title": "Fixture F10",
+    "translator": null,
+    "year": null,
+    "source_file": "f10.epub"
+  },
+  "spine": [
+    {
+      "href": "ch_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    }
+  ]
+}

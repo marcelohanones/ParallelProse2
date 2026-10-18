@@ -1,0 +1,25 @@
+{
+  "edition": {
+    "title": "Fixture F3",
+    "translator": null,
+    "year": null,
+    "source_file": "f3.epub"
+  },
+  "spine": [
+    {
+      "href": "ch_a_z.xhtml",
+      "class": "body",
+      "chapter": "A"
+    },
+    {
+      "href": "ch_a_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    },
+    {
+      "href": "ch_b.xhtml",
+      "class": "body",
+      "chapter": "B"
+    }
+  ]
+}
