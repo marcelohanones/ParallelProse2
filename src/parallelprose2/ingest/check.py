@@ -25,7 +25,10 @@ class BookSummary:
 
 
 def check_book(epub_path: str, manifest_path: str) -> BookSummary:
-    manifest = load_manifest(manifest_path)
+    try:
+        manifest = load_manifest(manifest_path)
+    except FileNotFoundError:
+        raise IngestError("E-INPUT-MISSING", manifest_path) from None
     with open_epub(epub_path) as z:
         package = read_package(z)
     manifest_paths = [(resolve_href(package.opf_dir, e.href), e) for e in manifest.spine]
@@ -51,6 +54,12 @@ def check_classification(spine: tuple[str, ...], manifest_paths: list) -> None:
     for path, entry in manifest_paths:
         if entry.cls not in CLASSES:
             raise IngestError("E-MANIFEST-CLASS-INVALID", path)
+    for path, entry in manifest_paths:
+        if entry.cls != "body" and not entry.reason:
+            raise IngestError("E-MANIFEST-REASON-MISSING", path)
+    if len(spine) != len(manifest_paths):
+        extra = spine[len(manifest_paths)] if len(spine) > len(manifest_paths) else manifest_paths[len(spine)][0]
+        raise IngestError("E-MANIFEST-ORDER-MISMATCH", extra)
     for position, (path, _) in enumerate(manifest_paths):
         if path != spine[position]:
             raise IngestError("E-MANIFEST-ORDER-MISMATCH", path)

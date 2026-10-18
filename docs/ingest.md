@@ -10,20 +10,23 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in order:
+Slice 1 of this stage exists in `src/parallelprose2/ingest/` (landmark 4a, tested); no paragraph or artifact code is written yet. Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M25 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M27 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
-| 4 | Ingestion runs on Augustine, starting with F1 | slice 1 built in `src/parallelprose2/ingest/` and tested (14 tests): dispatch, readers, phases 1–2, F1 stop; no paragraphs, no artifact writing yet; committed as `e4f36dd`, manifest ids in M26 as `3871237` | Doing |
+| 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (34 tests); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening uncommitted | Done |
+| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | not started; held until DSH reviews 4a | Not started |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | not started | Not started |
+| 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: slice 1 is built, tested and committed (`e4f36dd`); the manifest ids are decided (M26). The next step is not yet
-scoped.
+Next: 4a's round 32 hardening is done (34 tests, uncommitted); the ids are decided (M26, M27, M28) and the length check is
+approved. Then Markim's go on 4b (paragraphs and addresses).
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -439,13 +442,32 @@ M24 leaves out. Ruled by Markim in the ingestion track: `E-MANIFEST-DUPLICATE-HR
 `E-MANIFEST-ORDER-MISMATCH` (the manifest order differs from the spine at some position), and
 `E-MANIFEST-CLASS-INVALID` (a class outside `body`, `structural` and `not-the-author`). Form as M24. Premise: phase 1
 needs an id for each of its checks, or the error line is ambiguous for a reader that matches on it. Invalidated by: a
-manifest format that cannot express a duplicate, an order or a class value.
+manifest format that cannot express a duplicate, an order or a class value. A length difference from the spine is a
+mismatch of order too, approved in round 32 and stopped as `E-MANIFEST-ORDER-MISMATCH` on the extra item.
+
+**M27 — two ids for unreadable input.** Settles: the ids for a missing input path and for a package file that is not
+well-formed XML. Ruled by Markim in the ingestion track: `E-INPUT-MISSING` (the path given to the run does not exist;
+the `file` is that path) and `E-PACKAGE-MALFORMED` (the `META-INF/container.xml`, the `content.opf` or the `toc.ncx` is
+not well-formed XML; the `file` is that member). Form as M24. Premise: a missing path and a malformed package are two
+conditions, and M24 gives one id per condition. Invalidated by: a need to report one of these conditions with more
+detail than the id and the file carry. Extended in round 32, approved by Markim: the same id also covers a member that the container or the OPF names and
+the zip lacks, and the structural gaps (a `rootfile` without `full-path`; an OPF without `manifest` or `spine`, or a spine
+without `toc`; a manifest item without `id` or `href`; a `navMap` missing from the NCX; a navPoint without a label or
+content). xhtml parsing is still not done by slice 1.
+
+**M28 — two manifest ids: malformed manifest, and a missing reason.** Settles: the ids for a manifest that is not
+a manifest (`E-MANIFEST-MALFORMED`: not JSON, or missing `spine`, `edition`, an entry's `href` or `class`), and for a
+non-body entry with no `reason` (`E-MANIFEST-REASON-MISSING`, which M23 requires). Ruled by Markim in round 32, on
+DSH's recommendation. The `file` is the manifest path for the first, and the entry's href for the second. The reason
+check runs in phase 1, after the class check and before the order check. Form as M24. Premise: M23 requires a reason
+for both non-body classes, and a missing reason is the same kind of gap as an unclassified item, so it needs its own
+stop. Invalidated by: a rule that allows a non-body entry without a reason.
 
 ## Open
 
-- **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`).
-- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); only F1 is built (`tests/fixtures/ingest/`). `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
-  F10–F12; no fixture file or test code exists yet. The two package-level tests of M22 are designed, not written.
+- **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
+- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); F1 and F2 are built as committed bytes (`tests/fixtures/ingest/`), with tests. `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
+  F10–F12; F3–F12 are not built as files yet. The two package-level tests of M22 are designed, not written.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
   figure reproduces under it.
 - **Manifest values.** Typed and confirmed by Markim: Augustine, "1921 Chatto & Windus edition" (`54_split_003`),

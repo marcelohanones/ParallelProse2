@@ -3,6 +3,8 @@
 import json
 from dataclasses import dataclass
 
+from parallelprose2.ingest.errors import IngestError
+
 CLASSES = ("body", "structural", "not-the-author")
 
 
@@ -21,13 +23,17 @@ class Manifest:
 
 
 def load_manifest(path: str) -> Manifest:
+    """A missing file is the caller's E-INPUT-MISSING; anything else that is not a manifest is E-MANIFEST-MALFORMED."""
     with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+        try:
+            data = json.load(f)
+        except ValueError:
+            raise IngestError("E-MANIFEST-MALFORMED", path) from None
     try:
         spine = tuple(
             Entry(href=e["href"], cls=e["class"], chapter=e.get("chapter"), reason=e.get("reason"))
             for e in data["spine"]
         )
         return Manifest(edition=data["edition"], spine=spine)
-    except (KeyError, TypeError) as exc:
-        raise ValueError(f"manifest {path} is malformed: {exc}") from None
+    except (KeyError, TypeError):
+        raise IngestError("E-MANIFEST-MALFORMED", path) from None
