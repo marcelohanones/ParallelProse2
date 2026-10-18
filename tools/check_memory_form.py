@@ -27,8 +27,13 @@ def main() -> int:
         # Not a checkable payload: say so on stderr, so a changed hook shape is visible, and pass.
         print("check_memory_form: payload is not JSON; nothing checked", file=sys.stderr)
         return 0
-    path = payload.get("tool_input", {}).get("file_path", "")
-    if not path or not os.path.abspath(path).startswith(os.path.abspath(store) + os.sep):
+    tool_input = payload.get("tool_input") if isinstance(payload, dict) else None
+    path = tool_input.get("file_path") if isinstance(tool_input, dict) else None
+    if not isinstance(path, str) or not path:
+        # Valid JSON, but not the hook's shape: name it on stderr, so the silence cannot pass unseen.
+        print("check_memory_form: payload has no tool_input.file_path; nothing checked", file=sys.stderr)
+        return 0
+    if not os.path.abspath(path).startswith(os.path.abspath(store) + os.sep):
         return 0
     if not path.endswith(".md") or os.path.basename(path) == "MEMORY.md":
         return 0
