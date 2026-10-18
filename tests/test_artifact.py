@@ -525,6 +525,30 @@ class ArtifactRound34(TempCase):
         self.assertEqual(os.listdir(out), [RECORDS])
         self.assertEqual(self.read(out, RECORDS), b'{"partial": true}\n')
 
+    def test_directory_another_process_creates_is_not_removed_on_a_later_stop(self):
+        out = self.path("raced")
+        built = build(F7_EPUB, F7_MANIFEST)
+        real_replace = os.replace
+        replaces = []
+
+        def other_process_creates_it(path, *args, **kwargs):
+            os.mkdir(path)  # the other process wins the race ...
+            raise FileExistsError(path)  # ... and this run's makedirs reports it
+
+        def second_fails(src, dst):
+            replaces.append(dst)
+            if len(replaces) == 2:
+                raise OSError("replace refused")
+            return real_replace(src, dst)
+
+        with mock.patch("parallelprose2.ingest.artifact.os.makedirs", side_effect=other_process_creates_it), \
+                mock.patch("parallelprose2.ingest.artifact.os.replace", side_effect=second_fails):
+            with self.assertRaises(IngestError) as caught:
+                write(built, out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertTrue(os.path.isdir(out))  # not this run's directory, so not removed
+        self.assertEqual(os.listdir(out), [])
+
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET
         from parallelprose2.ingest.artifact import word_count

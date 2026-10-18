@@ -121,9 +121,13 @@ def write(built: Built, out_dir: str) -> None:
     is E-ARTIFACT-WRITE-FAILED (M39); the stop removes the temporaries and the renamed files it made."""
     temporaries = {}
     renamed = []
-    created = not os.path.isdir(out_dir)
+    created = False  # set only when this run's own makedirs creates the directory (round 40)
     try:
-        os.makedirs(out_dir, exist_ok=True)
+        try:
+            os.makedirs(out_dir)
+            created = True
+        except FileExistsError:
+            pass
         if any(os.path.lexists(os.path.join(out_dir, name)) for name in (RECORDS, REPORT, DESCRIPTOR)):  # M40, M41
             raise OSError("an artifact already exists in this directory")
         for name, data in ((RECORDS, built.records), (REPORT, built.report), (DESCRIPTOR, built.descriptor)):
