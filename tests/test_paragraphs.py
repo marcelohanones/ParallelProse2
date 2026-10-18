@@ -4,8 +4,11 @@
 """
 
 import os
+import tempfile
 import unittest
+import zipfile
 
+from parallelprose2.ingest.errors import IngestError
 from parallelprose2.ingest.paragraphs import extract
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -57,6 +60,42 @@ class Debord(unittest.TestCase):
         self.assertEqual([(d.href, d.position) for d in result.dropped], [("ch-7.html", 18)])
 
 
+class BodyStops(unittest.TestCase):
+    """Stops at the body read (M27 body members, M30): a copy of F3 with one body file broken or missing."""
+
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.dir.cleanup)
+
+    def _copy(self, replace=None, skip=()):
+        replace = replace or {}
+        epub, manifest = fixture("f3")
+        path = os.path.join(self.dir.name, "copy.epub")
+        with zipfile.ZipFile(epub) as src, zipfile.ZipFile(path, "w") as dst:
+            for info in src.infolist():
+                if info.filename in skip:
+                    continue
+                dst.writestr(info, replace.get(info.filename, src.read(info.filename)))
+        return path, manifest
+
+    def _stop(self, path, manifest):
+        with self.assertRaises(IngestError) as caught:
+            extract(path, manifest)
+        return caught.exception.error_line()
+
+    def test_body_file_not_well_formed(self):
+        path, manifest = self._copy(replace={"ch_a_z.xhtml": b"<html><body><p>unclosed</body></html>"})
+        self.assertEqual(self._stop(path, manifest), "E-BODY-MALFORMED file=ch_a_z.xhtml")
+
+    def test_body_file_without_body(self):
+        path, manifest = self._copy(replace={"ch_a_z.xhtml": b'<html xmlns="http://www.w3.org/1999/xhtml"><head/></html>'})
+        self.assertEqual(self._stop(path, manifest), "E-BODY-MALFORMED file=ch_a_z.xhtml")
+
+    def test_body_member_the_zip_lacks(self):
+        path, manifest = self._copy(skip={"ch_a_z.xhtml"})
+        self.assertEqual(self._stop(path, manifest), "E-PACKAGE-MALFORMED file=ch_a_z.xhtml")
+
+
 class Fixtures(unittest.TestCase):
     def test_f3_one_chapter_over_two_files_keeps_spine_order(self):
         epub, manifest = fixture("f3")
@@ -81,6 +120,19 @@ class Fixtures(unittest.TestCase):
     def test_f10_normalization_breaks_become_spaces_and_runs_collapse(self):
         epub, manifest = fixture("f10")
         self.assertEqual(rows(extract(epub, manifest)), [(1, "Chapter A", 1, "Line one. Line two. Line three.")])
+
+
+class MoreFixtures(unittest.TestCase):
+    def test_f7_one_paragraph_and_the_empty_p_listed_the_empty_wrapper_silent(self):
+        epub, manifest = fixture("f7")
+        result = extract(epub, manifest)
+        self.assertEqual(rows(result), [(1, "Chapter A", 1, "One text paragraph.")])
+        self.assertEqual([(d.href, d.position) for d in result.dropped], [("ch_a.xhtml", 2)])
+
+    def test_f12_inline_element_boundary_keeps_the_text_as_written(self):
+        epub, manifest = fixture("f12")
+        self.assertEqual(rows(extract(epub, manifest)),
+                         [(1, "Chapter A", 1, "The Society of the Spectacle(La Soci\u00e9t\u00e9 du spectacle)")])
 
 
 if __name__ == "__main__":

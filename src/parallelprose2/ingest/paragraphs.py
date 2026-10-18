@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from parallelprose2.ingest.check import check_book
 from parallelprose2.ingest.epub import open_epub, read_package, resolve_href
+from parallelprose2.ingest.errors import IngestError
 from parallelprose2.ingest.manifest import load_manifest
 
 BLOCK_TAGS = {"p", "div", "blockquote", "li"}  # D6
@@ -106,6 +107,23 @@ def _collect(el, quoted, source, out, state, skip=frozenset()):
     flush()
 
 
+def _read_body(z, href):
+    """The body element of a body file. A member the OPF names but the zip lacks is E-PACKAGE-MALFORMED (M27); a file
+    that is not well-formed XHTML, or has no body, is E-BODY-MALFORMED (M30)."""
+    try:
+        data = z.read(href)
+    except KeyError:
+        raise IngestError("E-PACKAGE-MALFORMED", href) from None
+    try:
+        root = ET.fromstring(data)
+    except ET.ParseError:
+        raise IngestError("E-BODY-MALFORMED", href) from None
+    body = next((el for el in root.iter() if _local(el.tag) == "body"), None)
+    if body is None:
+        raise IngestError("E-BODY-MALFORMED", href)
+    return body
+
+
 def extract(epub_path: str, manifest_path: str) -> Extraction:
     """Run phases 1 and 2, then extract the paragraphs of every body file in spine order."""
     summary = check_book(epub_path, manifest_path)
@@ -121,8 +139,7 @@ def extract(epub_path: str, manifest_path: str) -> Extraction:
             entry = entries[href]
             if entry.cls != "body":
                 continue
-            root = ET.fromstring(z.read(href))
-            body = next(el for el in root.iter() if _local(el.tag) == "body")
+            body = _read_body(z, href)
             out: list[tuple[str, bool, str | None]] = []
             state = _State()
             _collect(body, False, None, out, state)

@@ -1,0 +1,25 @@
+{
+  "edition": {
+    "title": "Fixture F7",
+    "translator": null,
+    "year": null,
+    "source_file": "f7.epub"
+  },
+  "spine": [
+    {
+      "href": "cover.xhtml",
+      "class": "structural",
+      "reason": "cover, no prose"
+    },
+    {
+      "href": "note.xhtml",
+      "class": "not-the-author",
+      "reason": "translator's note, excluded"
+    },
+    {
+      "href": "ch_a.xhtml",
+      "class": "body",
+      "chapter": "A"
+    }
+  ]
+}

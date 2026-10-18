@@ -10,23 +10,23 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Slice 1 of this stage exists in `src/parallelprose2/ingest/` (landmark 4a, tested); no paragraph or artifact code is written yet. Landmarks, in order:
+Code for 4a and 4b exists in `src/parallelprose2/ingest/` and is tested; no artifact code is written yet. Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M27 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M30 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
-| 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (34 tests); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening uncommitted | Done |
-| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; F3, F4 and F10 committed as bytes with tests (43 tests); no artifact (4c); uncommitted | Done |
+| 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (34 tests); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
+| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are uncommitted (47 tests in all); F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
 | 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | not started | Not started |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
-| 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
+| 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: 4b is built (43 tests, uncommitted). Then 4c, the artifact and identity: the JSONL, the report, `version_id`, and
-`content_hash`, which needs Markim's go.
+Next: 4c, the artifact and identity (the JSONL, the report, `version_id`, `content_hash`). Markim authorized it in round 33
+once 5a, the 5c fixtures and the 5d schema were in; they are in now (47 tests, uncommitted).
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -138,7 +138,7 @@ produces nothing and is not listed.
 | `text` | normalized text, as written |
 | `quoted` | true when the block is inside a `blockquote` |
 | `source` | the attribution line of the blockquote, or null |
-| `printed_no` | the printed number (D5): the number of the numbered entry the block belongs to; null when the book prints none, or for epigraphs |
+| `printed_no` | the printed number (D5): the number of the numbered entry the block belongs to; null when the book prints none, or for epigraphs. Schema fixed in round 33: present in every record; null for Augustine; Debord's extraction follows in 5 |
 
 Output format: JSON Lines, one object per paragraph. Recommended; internal to ingestion and does not touch the
 contract.
@@ -453,7 +453,8 @@ conditions, and M24 gives one id per condition. Invalidated by: a need to report
 detail than the id and the file carry. Extended in round 32, approved by Markim: the same id also covers a member that the container or the OPF names and
 the zip lacks, and the structural gaps (a `rootfile` without `full-path`; an OPF without `manifest` or `spine`, or a spine
 without `toc`; a manifest item without `id` or `href`; a `navMap` missing from the NCX; a navPoint without a label or
-content). xhtml parsing is still not done by slice 1.
+content). A body file that is not well-formed XHTML, or has no body, stops as `E-BODY-MALFORMED` (M30); a body member the
+zip lacks is `E-PACKAGE-MALFORMED` (M27, approved in round 33).
 
 **M28 — two manifest ids: malformed manifest, and a missing reason.** Settles: the ids for a manifest that is not
 a manifest (`E-MANIFEST-MALFORMED`: not JSON, or missing `spine`, `edition`, an entry's `href` or `class`), and for a
@@ -464,7 +465,7 @@ for both non-body classes, and a missing reason is the same kind of gap as an un
 stop. Invalidated by: a rule that allows a non-body entry without a reason.
 
 **M29 — four extraction choices in paragraph extraction.** Settles: how the extraction treats structure the ledger does
-not name. Recorded by CC in round 33 for Markim's review; not yet ruled. (1) Containers that are neither block nor inline
+not name. Ruled by Markim in round 33 on DSH's review: all four accepted, and the code matches them. (1) Containers that are neither block nor inline
 (`ul`, `ol`, `body`) pass their children through, without a paragraph of their own; their direct text, if any, would be
 a paragraph. Premise: D6 names only `p`, `div`, `blockquote` and `li` as blocks, and a `ul` holds only `li` blocks.
 Invalidated by: a container with direct text that is not a block. (2) The inline set is `span`, `em`, `i`, `b`, `strong`,
@@ -476,11 +477,17 @@ Debord has 19 non-breaking spaces in its html and Augustine has one. Invalidated
 counts toward the position of a dropped `<p>`. Premise: D6 already excludes it, and the position stays the `<p>` ordinal
 in the file. Invalidated by: a dropped `<p>` report that is meant to count only text paragraphs.
 
+**M30 — a body file that is not well-formed XHTML, or has no body, stops as `E-BODY-MALFORMED`.** Settles: the stop for a
+body file the parser cannot read as a document with a `<body>`. Ruled by Markim in round 33 on DSH's review. The `file` is
+the body href. Premise: M27 names the body files in the OPF, so the body read is where a broken file shows; a typed stop
+there keeps the machine-readable line where a traceback would not. Entities: only the five XML entities are accepted, so
+a future `&nbsp;` is this stop, not a new rule (5b, ruled in round 33; `lxml` is M25's "then, not before"). A body member
+that the zip lacks is `E-PACKAGE-MALFORMED` (M27). Invalidated by: a body format that is not XHTML.
+
 ## Open
 
 - **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
-- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); F1 and F2 are built as committed bytes (`tests/fixtures/ingest/`), with tests. `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
-  F10–F12; F3–F12 are not built as files yet. The two package-level tests of M22 are designed, not written.
+- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied). Built as committed bytes with tests: F1, F2, F3, F4, F7, F10 and F12. Before 4c: F8, F9 and F9b, which are artifact tests derived from the F7 artifact, so they follow the 4c build. Before 4d: F6, F6b, F11 and the F5 set. The two package-level tests of M22 are designed, not written.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
   figure reproduces under it.
 - **Manifest values.** Typed and confirmed by Markim: Augustine, "1921 Chatto & Windus edition" (`54_split_003`),

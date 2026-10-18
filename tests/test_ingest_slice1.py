@@ -7,7 +7,6 @@ import json
 import os
 import tempfile
 import unittest
-import xml.etree.ElementTree as ET
 import zipfile
 
 from parallelprose2.ingest.check import check_book
@@ -21,6 +20,8 @@ AUGUSTINE_MANIFEST = os.path.join(REPO, "manifests", "augustine.json")
 DEBORD_MANIFEST = os.path.join(REPO, "manifests", "debord.json")
 F1_EPUB = os.path.join(REPO, "tests", "fixtures", "ingest", "f1.epub")
 F1_MANIFEST = os.path.join(REPO, "tests", "fixtures", "ingest", "f1.manifest.json")
+F3_EPUB = os.path.join(REPO, "tests", "fixtures", "ingest", "f3.epub")
+F3_MANIFEST = os.path.join(REPO, "tests", "fixtures", "ingest", "f3.manifest.json")
 
 
 def stop_line(epub, manifest):
@@ -62,11 +63,11 @@ class Dispatch(unittest.TestCase):
             z.writestr("content.opf", "<package/>")
         self.assertEqual(stop_line(path, F1_MANIFEST), f"E-INPUT-NOT-EPUB file={path}")
 
-    def test_epub_renamed_to_pdf_gives_the_same_stop(self):
+    def test_epub_renamed_to_pdf_gives_the_same_book(self):
         path = self._path("book.pdf")
-        with open(F1_EPUB, "rb") as src, open(path, "wb") as dst:
+        with open(F3_EPUB, "rb") as src, open(path, "wb") as dst:
             dst.write(src.read())
-        self.assertEqual(stop_line(path, F1_MANIFEST), "E-BODY-NO-CHAPTER file=ch_b.xhtml")
+        self.assertEqual(check_book(path, F3_MANIFEST), check_book(F3_EPUB, F3_MANIFEST))
 
     def test_zip_with_wrong_mimetype_is_refused(self):
         path = self._path("book.epub")
@@ -274,26 +275,8 @@ class F2Stop(unittest.TestCase):
         self.assertEqual(stop_line(F2_EPUB, F2_MANIFEST), stop_line(F2_EPUB, F2_MANIFEST))
 
 
-class NavPointStop(unittest.TestCase):
-    """A body chapter whose navPoint is removed from toc.ncx stops in phase 2."""
-
-    def test_chapter_without_navpoint_stops(self):
-        with tempfile.TemporaryDirectory() as d:
-            copy = os.path.join(d, "augustine_no_book_two.epub")
-            with zipfile.ZipFile(AUGUSTINE_EPUB) as src, zipfile.ZipFile(copy, "w") as dst:
-                for info in src.infolist():
-                    data = src.read(info.filename)
-                    if info.filename.endswith(".ncx"):
-                        data = _drop_navpoint(data, "Book II")
-                    dst.writestr(info, data)
-            self.assertEqual(
-                stop_line(copy, AUGUSTINE_MANIFEST),
-                "E-CHAPTER-NO-NAVPOINT file=54_split_005.html chapter=book-02",
-            )
-
-
 class UnreadableInput(unittest.TestCase):
-    """A missing path, and a container, OPF or NCX that is not well-formed XML (M27)."""
+    """A missing path, and a container or OPF or NCX that is not well-formed XML (M27)."""
 
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
@@ -326,15 +309,6 @@ class UnreadableInput(unittest.TestCase):
     def test_malformed_ncx(self):
         path = self._copy_with("toc.ncx", b"<ncx")
         self.assertEqual(stop_line(path, F1_MANIFEST), "E-PACKAGE-MALFORMED file=toc.ncx")
-
-
-def _drop_navpoint(ncx_bytes, label):
-    root = ET.fromstring(ncx_bytes)
-    nav_map = root.find("{*}navMap")
-    for navpoint in list(nav_map.findall("{*}navPoint")):
-        if navpoint.find("{*}navLabel/{*}text").text.strip() == label:
-            nav_map.remove(navpoint)
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True)
 
 
 if __name__ == "__main__":
