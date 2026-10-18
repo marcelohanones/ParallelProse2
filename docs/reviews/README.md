@@ -43,6 +43,14 @@ mismatch.
 A mismatch between `sent` and `received`, both measured, is a signal to check the relay, the same way a mismatched
 first line is. Counts are a check on delivery, not on content: a difference in wording does not show up here.
 
+## Periods and tracks
+
+- **R1–R28 are one mixed period.** They stay where they are, in this folder, mixed; none is moved or renamed.
+- **From the next round, each track writes inside its own folder:** `implementation/` for the harness memory design,
+  `ingestion/` for the ingestion spec (`docs/ingest.md`). The one-writer rule holds inside each folder.
+- **`R28-dsh-p33.md` belongs to the implementation track.** Its name is odd on purpose, as its header explains; it is
+  not to be renamed to `R28-dsh.md`.
+
 ## Files
 
 - `R1-cc.md`: round 1, ingestion spec.

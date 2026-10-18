@@ -2,7 +2,12 @@
 
 ## Fonte
 
-O desenho e as regras vêm de `docs/documento_de_migracao.md`. Quando algo aqui contradizer esse documento, o documento de migração vale até o conflito ser resolvido.
+O documento de migração (`docs/documento_de_migracao.md`) dá as regras iniciais. Cada etapa tem um ledger próprio, mais específico, que registra as decisões tomadas depois: quando um ledger contradiz o documento de migração, o ledger vale. Para ingestão, o ledger é `docs/ingest.md`.
+
+## Escopo de leitura
+
+Não leia o projeto ParallelProse: código, documentos, nem a memória de harness dele. As decisões de arquitetura de lá não valem aqui. Uma citação a ele num documento deste repositório é contexto e não autoriza ir buscá-la. Em caso de dúvida, pare e pergunte antes de ler.
+
 
 ## O projeto
 

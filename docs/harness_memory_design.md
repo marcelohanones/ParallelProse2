@@ -30,8 +30,8 @@ The layers above settle who writes. This settles how a memory ages. It applies t
 layer, and it is convention: nothing enforces it, so it is checkable only by reading. **[decided]**
 
 **Formally accepted by the user 2026-10-13** ("com certeza ela é vital"), with the authority to apply it
-retroactively to memories already written — the first application being the status line on
-`project_items_36_43_shape.md`, below. **[decided]**
+retroactively to memories already written — the first application being a status line appended to a memory
+in the previous project's store. **[decided]**
 
 The case that produced it: `harness-vs-model-split` (written 2026-10-11, deleted 2026-10-13) recorded the
 conclusion "ParallelProse stays entirely OpenAI" plus the imperative "if an executor asks to swap a provider
@@ -306,4 +306,4 @@ settled. New points append.
 | P21 | The write-time check must filter on file path (the memory store only). Content-only matching false-positives on this doc, which quotes the three markers, and on an `Edit` whose partial `new_string` carries `Decided on:` without the rest of the body. **Acked by dsh, with a refinement taken:** check the *post*-state via `PostToolUse` rather than simulating the edit at `PreToolUse`, since simulation re-implements Edit's matching and can diverge silently. Sufficient only while P7 holds (the checker signals, never acts) — **if P7 ever flips to "blocks", `PreToolUse` plus simulation becomes necessary and that risk returns**; the two are coupled | settled | — |
 | P31 | Signed off by dsh, round 5, for steps 1–6 and 9 as written; step 8's passes rest on the session records, `headless` for `15c39d02` and `web` for `1836d2e7`'s variant-prompt run | settled | — |
 | P32 | `CLAUDE.md:26` points at `docs/modo_critique.md`, committed in `e7048b9` so a clone keeps the pointer and its target | settled — committed `e7048b9` | — |
-| P33 | The hook's live invocation is unmeasured: it needs one edit in this repo run through the hook, with the exit code and stderr recorded. Until then `.claude/settings.local.json` is configuration, not evidence. A live run needs a new Claude Code session, since settings load at session start (P3) | open | either, in a new session |
+| P33 | The hook's live invocation is unmeasured: it needs one edit in this repo run through the hook, with the exit code and stderr recorded. Until then `.claude/settings.local.json` is configuration, not evidence. A live run needs a new Claude Code session, since settings load at session start (P3) | settled — **[measured]** in a new session: a live Write of a violating file in the store was blocked by the hook with the checker's message (a PostToolUse blocking error, **[code]** as exit 2's observable form, since the number itself was not seen); the probe was removed afterwards | — |
