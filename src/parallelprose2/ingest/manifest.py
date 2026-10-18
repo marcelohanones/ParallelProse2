@@ -22,13 +22,13 @@ class Manifest:
     spine: tuple[Entry, ...]
 
 
-def load_manifest(path: str) -> Manifest:
-    """A missing file is the caller's E-INPUT-MISSING; anything else that is not a manifest is E-MANIFEST-MALFORMED."""
-    with open(path, encoding="utf-8") as f:
-        try:
-            data = json.load(f)
-        except ValueError:
-            raise IngestError("E-MANIFEST-MALFORMED", path) from None
+def load_manifest(raw: bytes, path: str) -> Manifest:
+    """Parse the manifest bytes. A missing file is the caller's E-INPUT-MISSING; anything else that is not a manifest is
+    E-MANIFEST-MALFORMED. `path` is the error locator."""
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except ValueError:
+        raise IngestError("E-MANIFEST-MALFORMED", path) from None
     try:
         spine = tuple(
             Entry(href=e["href"], cls=e["class"], chapter=e.get("chapter"), reason=e.get("reason"))

@@ -10,8 +10,9 @@ import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 
-from parallelprose2.ingest.check import check_book
+from parallelprose2.ingest.check import check_inputs
 from parallelprose2.ingest.epub import open_epub, read_package, resolve_href
+from parallelprose2.ingest.inputs import Inputs
 from parallelprose2.ingest.errors import IngestError
 from parallelprose2.ingest.manifest import load_manifest
 
@@ -109,7 +110,7 @@ def _collect(el, quoted, source, out, state, skip=frozenset()):
 
 def _read_body(z, href):
     """The body element of a body file. A member the OPF names but the zip lacks is E-PACKAGE-MALFORMED (M27); a file
-    that is not well-formed XHTML, or has no body, is E-BODY-MALFORMED (M30)."""
+    that is not well-formed XHTML, or has no body, is E-XHTML-MALFORMED (M30)."""
     try:
         data = z.read(href)
     except KeyError:
@@ -117,19 +118,23 @@ def _read_body(z, href):
     try:
         root = ET.fromstring(data)
     except ET.ParseError:
-        raise IngestError("E-BODY-MALFORMED", href) from None
+        raise IngestError("E-XHTML-MALFORMED", href) from None
     body = next((el for el in root.iter() if _local(el.tag) == "body"), None)
     if body is None:
-        raise IngestError("E-BODY-MALFORMED", href)
+        raise IngestError("E-XHTML-MALFORMED", href)
     return body
 
 
 def extract(epub_path: str, manifest_path: str) -> Extraction:
+    return extract_inputs(Inputs.read(epub_path, manifest_path))
+
+
+def extract_inputs(inp: Inputs) -> Extraction:
     """Run phases 1 and 2, then extract the paragraphs of every body file in spine order."""
-    summary = check_book(epub_path, manifest_path)
+    summary = check_inputs(inp)
     labels = {c.chapter: c.label for c in summary.chapters}
-    manifest = load_manifest(manifest_path)
-    with open_epub(epub_path) as z:
+    manifest = load_manifest(inp.manifest, inp.manifest_path)
+    with open_epub(inp.epub, inp.epub_path) as z:
         package = read_package(z)
         entries = {resolve_href(package.opf_dir, e.href): e for e in manifest.spine}
         paragraphs: list[Paragraph] = []

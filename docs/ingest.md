@@ -10,23 +10,23 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Code for 4a and 4b exists in `src/parallelprose2/ingest/` and is tested; no artifact code is written yet. Landmarks, in order:
+Code for 4a and 4b is committed in `src/parallelprose2/ingest/` and tested; the 4c artifact code is uncommitted, under DSH's round 34 review. Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M30 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M33 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
-| 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (34 tests); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
-| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are uncommitted (47 tests in all); F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
-| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | not started | Not started |
+| 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
+| 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py` (round 34 applied: one read of the inputs, script and style excluded, the report's version-id checked, E-ARTIFACT-INCOMPLETE and E-ARTIFACT-MALFORMED ruled in M32); 70 tests; the published word counts reproduce; F8, F9 and F9b are made from the F7 artifact in tests; uncommitted; awaiting DSH's critique | Doing |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
 Next: 4c, the artifact and identity (the JSONL, the report, `version_id`, `content_hash`). Markim authorized it in round 33
-once 5a, the 5c fixtures and the 5d schema were in; they are in now (47 tests, uncommitted).
+once 5a, the 5c fixtures and the 5d schema were in; they are in now. The 4c approach is under review (round 34), and DSH's round 34 points are applied (70 tests, uncommitted).
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -157,11 +157,12 @@ contract.
 
 `version_id` is a single hash over a canonical serialization of:
 - the sha256 of the epub file bytes;
-- the sha256 of the ingestion source files — every file under `src/parallelprose2/`, sorted by path (the code,
-  not a hand-bumped version string);
+- the sha256 of the ingestion source files — every source file under `src/parallelprose2/`, excluding `__pycache__` and
+  `.pyc` (generated, not code), sorted by path (the code, not a hand-bumped version string);
 - the sha256 of the book's manifest (edition fields and classification).
 
-The canonical serialization is JSON with sorted keys and no insignificant whitespace.
+The canonical serialization is JSON with sorted keys and no insignificant whitespace, encoded as UTF-8 with non-ASCII
+characters kept (`ensure_ascii=False`); the choice changes the bytes, so it is part of the identity (M33).
 
 Excluded from the identity: the file path.
 
@@ -241,8 +242,8 @@ Every fixture in `docs/ingest_fixtures.md` is a required test, and each one runs
 above is exercised with it (M17).
 
 Two rules are tested at package level rather than by a fixture, because no epub can exercise them (M22): the
-`version_id` moves when a file under `src/parallelprose2/` changes (M13), and a run killed between the two renames
-leaves a directory that does not verify (M15). A deferred one is recorded as unverified, never as covered.
+`version_id` moves when a source file under `src/parallelprose2/` changes (M13), and a run killed between the renames,
+before the descriptor, leaves a directory that does not verify (M15, M21). A deferred one is recorded as unverified, never as covered.
 
 ## Proibições
 
@@ -369,7 +370,7 @@ is a caption or label that must not be addressed as prose. Amends: D6.
 since M9 and M12 the report is part of the artifact, so a report written on failure would make "a report exists" stop
 meaning "the run completed"; and "writes nothing" is only true if output is buffered, which an implementation that
 writes as it goes is not. With no file written, the error line is the only durable record of why the run stopped, so
-it is machine-readable: rule id, file, and chapter where one applies.
+it is machine-readable: rule id, file, and a chapter or record where one applies (the record is the 1-based JSONL line; M32).
 Invalidated by: a workflow that must resume a partly ingested book from where it stopped.
 
 **M16 — a chapter's label comes from any of its files.** Settles: the label when the navPoint targets a file that is
@@ -453,7 +454,8 @@ conditions, and M24 gives one id per condition. Invalidated by: a need to report
 detail than the id and the file carry. Extended in round 32, approved by Markim: the same id also covers a member that the container or the OPF names and
 the zip lacks, and the structural gaps (a `rootfile` without `full-path`; an OPF without `manifest` or `spine`, or a spine
 without `toc`; a manifest item without `id` or `href`; a `navMap` missing from the NCX; a navPoint without a label or
-content). A body file that is not well-formed XHTML, or has no body, stops as `E-BODY-MALFORMED` (M30); a body member the
+content). A spine XHTML file that is not well-formed, or has no body, stops as `E-XHTML-MALFORMED` (M31; M30 named it
+`E-BODY-MALFORMED`); a body member the
 zip lacks is `E-PACKAGE-MALFORMED` (M27, approved in round 33).
 
 **M28 — two manifest ids: malformed manifest, and a missing reason.** Settles: the ids for a manifest that is not
@@ -477,17 +479,38 @@ Debord has 19 non-breaking spaces in its html and Augustine has one. Invalidated
 counts toward the position of a dropped `<p>`. Premise: D6 already excludes it, and the position stays the `<p>` ordinal
 in the file. Invalidated by: a dropped `<p>` report that is meant to count only text paragraphs.
 
-**M30 — a body file that is not well-formed XHTML, or has no body, stops as `E-BODY-MALFORMED`.** Settles: the stop for a
+**M30 — a body file that is not well-formed XHTML, or has no body, stops as `E-BODY-MALFORMED`.** Superseded in its id by M31. Settles: the stop for a
 body file the parser cannot read as a document with a `<body>`. Ruled by Markim in round 33 on DSH's review. The `file` is
 the body href. Premise: M27 names the body files in the OPF, so the body read is where a broken file shows; a typed stop
 there keeps the machine-readable line where a traceback would not. Entities: only the five XML entities are accepted, so
 a future `&nbsp;` is this stop, not a new rule (5b, ruled in round 33; `lxml` is M25's "then, not before"). A body member
 that the zip lacks is `E-PACKAGE-MALFORMED` (M27). Invalidated by: a body format that is not XHTML.
 
+**M31 — one id for any spine XHTML that is not well-formed.** Settles: the stop for a spine file that the parser cannot
+read as a document with a `<body>`, whether body or structural. Ruled by Markim in round 34 on DSH's review, which renamed
+M30's id: `E-XHTML-MALFORMED` (file = the href) replaces `E-BODY-MALFORMED`. Premise: the word count needs the `<body>` of
+every spine file, so a structural file that is broken would otherwise stop under a body name it does not have. Invalidated
+by: a structural file that may be malformed without the report needing it.
+
+**M32 — artifact ids, and the record locator.** Settles: the stops of the artifact and the form of the error line. Ruled by
+Markim in round 34 on DSH's review: `E-ARTIFACT-INCOMPLETE` (a descriptor is absent, or a file the descriptor names is
+missing; the file is that path); `E-ARTIFACT-MALFORMED` (the descriptor, or a record, is not JSON or lacks a field; the file
+is that path, and a record when one applies). The error line gains `record=N` (1-based JSONL line) where a record applies,
+as M15 now says. The verify order is fixed: descriptor, version_id against the inputs, record identity, report version-id,
+then content (identity before content, so F9b fails on identity and F9 on content). Premise: an incomplete directory is what
+a killed run leaves, and a reader must see why. Invalidated by: a storage layer that makes a half-written directory
+impossible.
+
+**M33 — the inputs are read once, and the identity is canonical UTF-8.** Settles: how many times a run reads the epub and
+the manifest, and the encoding of the canonical serialization. Ruled by Markim in round 34: one `Inputs` snapshot is read
+per run and every stage works on it, so a file changed mid-run cannot make the bytes inconsistent. The canonical JSON is
+UTF-8 with `ensure_ascii=False`. Premise: two reads can disagree, and the encoding changes the bytes that version_id
+hashes. Invalidated by: a stage that must reread a file the snapshot does not hold.
+
 ## Open
 
 - **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
-- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied). Built as committed bytes with tests: F1, F2, F3, F4, F7, F10 and F12. Before 4c: F8, F9 and F9b, which are artifact tests derived from the F7 artifact, so they follow the 4c build. Before 4d: F6, F6b, F11 and the F5 set. The two package-level tests of M22 are designed, not written.
+- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied). Built as committed bytes with tests: F1, F2, F3, F4, F7, F10 and F12. F8, F9 and F9b are artifact tests derived from the F7 artifact at test time, not committed bytes (M17 runs each twice; round 34). Before 4d: F6, F6b, F11 and the F5 set. The package-level tests of M22 are in `tests/test_artifact.py`.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
   figure reproduces under it.
 - **Manifest values.** Typed and confirmed by Markim: Augustine, "1921 Chatto & Windus edition" (`54_split_003`),

@@ -85,11 +85,11 @@ class BodyStops(unittest.TestCase):
 
     def test_body_file_not_well_formed(self):
         path, manifest = self._copy(replace={"ch_a_z.xhtml": b"<html><body><p>unclosed</body></html>"})
-        self.assertEqual(self._stop(path, manifest), "E-BODY-MALFORMED file=ch_a_z.xhtml")
+        self.assertEqual(self._stop(path, manifest), "E-XHTML-MALFORMED file=ch_a_z.xhtml")
 
     def test_body_file_without_body(self):
         path, manifest = self._copy(replace={"ch_a_z.xhtml": b'<html xmlns="http://www.w3.org/1999/xhtml"><head/></html>'})
-        self.assertEqual(self._stop(path, manifest), "E-BODY-MALFORMED file=ch_a_z.xhtml")
+        self.assertEqual(self._stop(path, manifest), "E-XHTML-MALFORMED file=ch_a_z.xhtml")
 
     def test_body_member_the_zip_lacks(self):
         path, manifest = self._copy(skip={"ch_a_z.xhtml"})

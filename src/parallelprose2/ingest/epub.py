@@ -1,5 +1,6 @@
 """Dispatch by content (F5) and the readers for container.xml, content.opf and toc.ncx."""
 
+import io
 import posixpath
 import xml.etree.ElementTree as ET
 import zipfile
@@ -18,19 +19,17 @@ class Package:
     navpoints: tuple[tuple[str, str], ...]  # (label, zip-root path) for top-level navPoints, in NCX order
 
 
-def open_epub(path: str) -> zipfile.ZipFile:
-    """Refuse anything whose content is not an epub; the extension is never consulted."""
+def open_epub(data: bytes, name: str) -> zipfile.ZipFile:
+    """Refuse anything whose content is not an epub; the extension is never consulted. `name` is the error locator."""
     try:
-        z = zipfile.ZipFile(path)
-    except FileNotFoundError:
-        raise IngestError("E-INPUT-MISSING", path) from None
+        z = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
-        raise IngestError("E-INPUT-NOT-EPUB", path) from None
+        raise IngestError("E-INPUT-NOT-EPUB", name) from None
     try:
         if z.read("mimetype") != MIMETYPE or "META-INF/container.xml" not in z.namelist():
-            raise IngestError("E-INPUT-NOT-EPUB", path)
+            raise IngestError("E-INPUT-NOT-EPUB", name)
     except KeyError:
-        raise IngestError("E-INPUT-NOT-EPUB", path) from None
+        raise IngestError("E-INPUT-NOT-EPUB", name) from None
     return z
 
 

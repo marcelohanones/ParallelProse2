@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from parallelprose2.ingest.epub import open_epub, read_package, resolve_href
 from parallelprose2.ingest.errors import IngestError
+from parallelprose2.ingest.inputs import Inputs
 from parallelprose2.ingest.manifest import CLASSES, load_manifest
 
 
@@ -25,11 +26,12 @@ class BookSummary:
 
 
 def check_book(epub_path: str, manifest_path: str) -> BookSummary:
-    try:
-        manifest = load_manifest(manifest_path)
-    except FileNotFoundError:
-        raise IngestError("E-INPUT-MISSING", manifest_path) from None
-    with open_epub(epub_path) as z:
+    return check_inputs(Inputs.read(epub_path, manifest_path))
+
+
+def check_inputs(inp: Inputs) -> BookSummary:
+    manifest = load_manifest(inp.manifest, inp.manifest_path)
+    with open_epub(inp.epub, inp.epub_path) as z:
         package = read_package(z)
     manifest_paths = [(resolve_href(package.opf_dir, e.href), e) for e in manifest.spine]
     check_classification(package.spine, manifest_paths)
