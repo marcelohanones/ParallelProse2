@@ -82,8 +82,13 @@ today. **[measured]** Because the checker only signals, the hook belongs on the 
 path-filtered to the store) rather than on `PreToolUse`, which would have to simulate the edit to see the
 resulting body and could diverge from the tool's own matching (P21). dsh has the equivalent at write time via `tools/pre-execute`, `ctx.tools.guard()` and the
 `fs/*` intent slots. **[code]** Both see only tool calls, so a shell append bypasses them; a git pre-commit hook
-would cover any writer but needs the store in the repo. No check is written yet — deferred because the form is
-still settling, not for want of a trigger. The checker signals only: it never deletes or rewrites, because
+would cover any writer but needs the store in the repo. No check is written yet — deferred because the form is still settling, not for want of a trigger. *Observation:* that
+sentence describes the state at the start of the implementation, and it stops being true once the checker is built
+(P20). The checker is `tools/check_memory_form.py`; it applies to memories that declare `Decided on:`, since P11 flipped
+for that scope (see the ledger). The hook is wired in `.claude/settings.local.json` at the repo root, which is the
+right scope: the file is machine-local and gitignored, because its command carries the absolute store path, and
+committing it would publish a home path (P19). The script reads that path from `MEMORY_STORE` and holds none. The
+checker signals only: it never deletes or rewrites, because
 deciding that a premise fell is the user's (rule 5). Scope that avoids flooding on day one, and matches
 no-retrofit: **if a body contains `Decided on:`, it must also contain `Premises:` and `Revisit if:`; without
 `Decided on:`, nothing is required.** A premise should cite a symbol, commit or item whose *change* is the
@@ -297,7 +302,8 @@ settled. New points append.
 | P17 | Layer 3 on: **no.** dsh does not write memories; layers 1 and 2 cover the need | settled — no | — |
 | P18 | Commit `CLAUDE.md` **and this doc together**, so a clone never has the pointer without its target; `.gitignore` rides along | settled — pointer in `38dbc69`, procedure in `fc25dda` | — |
 | P19 | The pointer section is public. Checked before deciding: neither file carries a home path or the username, and the only memory content published is layer 0's citation of the deleted case memory (the OpenAI conclusion, the cost problem, commit `024e4d8`) | settled — public | — |
-| P20 | Write the linter (needs P11 to flip: the form declared stable). **Closes when three cases are recorded in a throwaway project:** (1) a compliant body passes; (2) a body in the store with `Decided on:` and neither `Premises:` nor `Revisit if:` signals; (3) an edit to `docs/harness_memory_design.md`, which quotes all three markers, passes. | open — building | either, after P11 |
+| P20 | Write the linter (needs P11 to flip: the form declared stable). **Closes when three cases are recorded in a throwaway project:** (1) a compliant body passes; (2) a body in the store with `Decided on:` and neither `Premises:` nor `Revisit if:` signals; (3) an edit to `docs/harness_memory_design.md`, which quotes all three markers, passes. | settled — checker built, three cases verified by both sides, plus five containment cases | — |
 | P21 | The write-time check must filter on file path (the memory store only). Content-only matching false-positives on this doc, which quotes the three markers, and on an `Edit` whose partial `new_string` carries `Decided on:` without the rest of the body. **Acked by dsh, with a refinement taken:** check the *post*-state via `PostToolUse` rather than simulating the edit at `PreToolUse`, since simulation re-implements Edit's matching and can diverge silently. Sufficient only while P7 holds (the checker signals, never acts) — **if P7 ever flips to "blocks", `PreToolUse` plus simulation becomes necessary and that risk returns**; the two are coupled | settled | — |
 | P31 | Signed off by dsh, round 5, for steps 1–6 and 9 as written; step 8's passes rest on the session records, `headless` for `15c39d02` and `web` for `1836d2e7`'s variant-prompt run | settled | — |
 | P32 | `CLAUDE.md:26` points at `docs/modo_critique.md`, committed in `e7048b9` so a clone keeps the pointer and its target | settled — committed `e7048b9` | — |
+| P33 | The hook's live invocation is unmeasured: it needs one edit in this repo run through the hook, with the exit code and stderr recorded. Until then `.claude/settings.local.json` is configuration, not evidence. A live run needs a new Claude Code session, since settings load at session start (P3) | open | either, in a new session |

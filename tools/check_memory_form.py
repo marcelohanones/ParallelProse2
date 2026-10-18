@@ -21,7 +21,12 @@ def main() -> int:
     if not store:
         return 0
 
-    payload = json.load(sys.stdin)
+    try:
+        payload = json.load(sys.stdin)
+    except json.JSONDecodeError:
+        # Not a checkable payload: say so on stderr, so a changed hook shape is visible, and pass.
+        print("check_memory_form: payload is not JSON; nothing checked", file=sys.stderr)
+        return 0
     path = payload.get("tool_input", {}).get("file_path", "")
     if not path or not os.path.abspath(path).startswith(os.path.abspath(store) + os.sep):
         return 0
