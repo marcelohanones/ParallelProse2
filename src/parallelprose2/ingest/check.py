@@ -1,7 +1,6 @@
 """Check phases 1 and 2 for one book (M18). Writes nothing: a stop raises, and a pass returns a summary.
 
-Error ids marked provisional are not in M24; they name the manifest checks that M24 does not cover, and wait for a
-decision before the ledger records them.
+The E-MANIFEST-* ids for duplicate, order and class checks are recorded in M26.
 """
 
 from dataclasses import dataclass
@@ -37,7 +36,7 @@ def check_book(epub_path: str, manifest_path: str) -> BookSummary:
 def check_classification(spine: tuple[str, ...], manifest_paths: list) -> None:
     """Phase 1: every spine item classified, every entry in the spine, every class valid, in the same order."""
     seen = set()
-    for path, entry in manifest_paths:  # provisional: duplicate entry
+    for path, entry in manifest_paths:
         if path in seen:
             raise IngestError("E-MANIFEST-DUPLICATE-HREF", path)
         seen.add(path)
@@ -49,10 +48,10 @@ def check_classification(spine: tuple[str, ...], manifest_paths: list) -> None:
     for path, _ in manifest_paths:
         if path not in in_spine:
             raise IngestError("E-MANIFEST-ENTRY-NOT-IN-SPINE", path)
-    for path, entry in manifest_paths:  # provisional: class outside the three
+    for path, entry in manifest_paths:
         if entry.cls not in CLASSES:
             raise IngestError("E-MANIFEST-CLASS-INVALID", path)
-    for position, (path, _) in enumerate(manifest_paths):  # provisional: order differs from the spine
+    for position, (path, _) in enumerate(manifest_paths):
         if path != spine[position]:
             raise IngestError("E-MANIFEST-ORDER-MISMATCH", path)
 

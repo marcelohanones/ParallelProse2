@@ -22,8 +22,8 @@ No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in or
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: slice 1 is built and passes its tests, uncommitted. Markim decides the three provisional manifest ids (Open). Then
-the commit, then the next step, which is not yet scoped.
+Next: slice 1 is built, tested and committed (`e4f36dd`); the manifest ids are decided (M26). The next step is not yet
+scoped.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -433,11 +433,16 @@ with `zipfile`, their `.xhtml` and `.html` files parse with `xml.etree.ElementTr
 and no DOCTYPE appears (checked by CC and DSH). Invalidated by: a book with an HTML named entity or malformed markup.
 In that case the parse error becomes a typed stop, and `lxml` is added then, not before.
 
+**M26 — the manifest checks outside M24 get ids.** Settles: the machine-readable ids of the three manifest checks that
+M24 leaves out. Ruled by Markim in the ingestion track: `E-MANIFEST-DUPLICATE-HREF` (a manifest href listed twice),
+`E-MANIFEST-ORDER-MISMATCH` (the manifest order differs from the spine at some position), and
+`E-MANIFEST-CLASS-INVALID` (a class outside `body`, `structural` and `not-the-author`). Form as M24. Premise: phase 1
+needs an id for each of its checks, or the error line is ambiguous for a reader that matches on it. Invalidated by: a
+manifest format that cannot express a duplicate, an order or a class value.
+
 ## Open
 
-- **Provisional error ids** — slice 1 raises three manifest ids that M24 does not list: `E-MANIFEST-DUPLICATE-HREF`,
-  `E-MANIFEST-ORDER-MISMATCH` and `E-MANIFEST-CLASS-INVALID`. They are in `src/parallelprose2/ingest/check.py`, marked
-  provisional. Markim decides whether they enter M24 and under what names.
+- **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`).
 - **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); only F1 is built (`tests/fixtures/ingest/`). `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
   F10–F12; no fixture file or test code exists yet. The two package-level tests of M22 are designed, not written.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
