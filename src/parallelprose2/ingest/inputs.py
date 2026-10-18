@@ -22,5 +22,5 @@ def _read(path: str) -> bytes:
     try:
         with open(path, "rb") as f:
             return f.read()
-    except FileNotFoundError:
+    except OSError:  # missing, a directory, or unreadable: the same id (M37)
         raise IngestError("E-INPUT-MISSING", path) from None

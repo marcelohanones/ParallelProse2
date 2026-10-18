@@ -228,7 +228,7 @@ class ArtifactRound34(TempCase):
         os.remove(os.path.join(out, RECORDS))
         with self.assertRaises(IngestError) as caught:
             verify(out, F7_EPUB, F7_MANIFEST)
-        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={os.path.join(out, RECORDS)}")
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={RECORDS}")
 
     def test_descriptor_that_is_not_json_is_malformed(self):
         out = self.make_f7()
@@ -346,7 +346,7 @@ class ArtifactRound34(TempCase):
         os.remove(os.path.join(out, REPORT))
         with self.assertRaises(IngestError) as caught:
             verify(out, F7_EPUB, F7_MANIFEST)
-        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={os.path.join(out, REPORT)}")
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={REPORT}")
 
     def test_records_that_are_not_json_are_malformed_at_the_line(self):
         out = self.make_f7()
@@ -366,7 +366,7 @@ class ArtifactRound34(TempCase):
         self.save_descriptor(out, descriptor)
         with self.assertRaises(IngestError) as caught:
             verify(out, F7_EPUB, F7_MANIFEST)
-        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={os.path.join(out, REPORT)}")
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={REPORT}")
 
     def test_consistent_spine_line_edit_in_the_report_is_a_content_mismatch(self):
         out = self.make_f7()
@@ -392,6 +392,54 @@ class ArtifactRound34(TempCase):
         with self.assertRaises(IngestError) as caught:
             verify(out, F7_EPUB, F7_MANIFEST)
         self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={os.path.join(out, DESCRIPTOR)}")
+
+    def test_descriptor_reformatted_with_the_same_fields_is_a_content_mismatch(self):
+        out = self.make_f7()
+        descriptor = self.descriptor(out)
+        self.write_bytes(out, DESCRIPTOR, (json.dumps(descriptor, sort_keys=True, indent=4) + "\n").encode("utf-8"))
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-CONTENT-MISMATCH file={os.path.join(out, DESCRIPTOR)}")
+
+    def test_descriptor_with_an_added_field_is_a_content_mismatch(self):
+        out = self.make_f7()
+        descriptor = self.descriptor(out)
+        descriptor["note"] = "added"
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-CONTENT-MISMATCH file={os.path.join(out, DESCRIPTOR)}")
+
+    def test_descriptor_with_files_reordered_is_a_content_mismatch(self):
+        out = self.make_f7()
+        descriptor = self.descriptor(out)
+        descriptor["files"] = list(reversed(descriptor["files"]))
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-CONTENT-MISMATCH file={os.path.join(out, DESCRIPTOR)}")
+
+    def test_descriptor_missing_an_entry_is_malformed(self):
+        out = self.make_f7()
+        descriptor = self.descriptor(out)
+        descriptor["files"] = [e for e in descriptor["files"] if e["name"] == RECORDS]
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={os.path.join(out, DESCRIPTOR)}")
+
+    def test_records_path_that_is_a_directory_is_incomplete(self):
+        out = self.make_f7()
+        os.remove(os.path.join(out, RECORDS))
+        os.mkdir(os.path.join(out, RECORDS))
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={RECORDS}")
+
+    def test_epub_path_that_is_a_directory_is_input_missing(self):
+        with self.assertRaises(IngestError) as caught:
+            build(self.dir.name, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-INPUT-MISSING file={self.dir.name}")
 
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET

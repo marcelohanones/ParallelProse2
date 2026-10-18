@@ -129,19 +129,21 @@ def write(built: Built, out_dir: str) -> None:
         os.replace(temporaries[name], os.path.join(out_dir, name))
 
 
-def _read_file(path: str) -> bytes:
+def _read_file(path: str, locator: str) -> bytes:
+    """Read one artifact file. Refusals name `locator`: the artifact-relative name for records and report, the full path
+    for the descriptor (round 36, Markim)."""
     try:
         with open(path, "rb") as f:
             return f.read()
-    except FileNotFoundError:
-        raise IngestError("E-ARTIFACT-INCOMPLETE", path) from None  # M32
+    except OSError:  # missing, a directory, or unreadable: the same id (M37)
+        raise IngestError("E-ARTIFACT-INCOMPLETE", locator) from None  # M32
 
 
 def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
     """Refuse unless the artifact is what the inputs produce. Returns the version_id on success."""
     inp = Inputs.read(epub_path, manifest_path)
     descriptor_path = os.path.join(artifact_dir, DESCRIPTOR)
-    raw_descriptor = _read_file(descriptor_path)
+    raw_descriptor = _read_file(descriptor_path, descriptor_path)
     try:
         descriptor = json.loads(raw_descriptor.decode("utf-8"))
         vid = descriptor["version_id"]
@@ -157,7 +159,7 @@ def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
     # Each artifact file is read once; the bytes read here are the ones hashed and parsed.
     files = {}
     for name in sorted(set(stored) | {RECORDS, REPORT}):
-        files[name] = _read_file(os.path.join(artifact_dir, name))
+        files[name] = _read_file(os.path.join(artifact_dir, name), name)
     stored_records = files[RECORDS]
     stored_report = files[REPORT]
     recomputed = {name: sha256_bytes(data) for name, data in files.items()}
@@ -174,7 +176,7 @@ def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
     try:
         report_text = stored_report.decode("utf-8")
     except UnicodeDecodeError:
-        raise IngestError("E-ARTIFACT-MALFORMED", report_path) from None
+        raise IngestError("E-ARTIFACT-MALFORMED", REPORT) from None
     report_vids = [line.split("\t", 1)[1] for line in report_text.splitlines() if line.startswith("version-id\t")]
     if report_vids != [vid]:
         raise IngestError("E-ARTIFACT-IDENTITY-MISMATCH", REPORT)
@@ -191,5 +193,7 @@ def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
     if stored_report != fresh.report:
         raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", REPORT)
     if recomputed != stored or content_hash(recomputed) != stored_content_hash:
+        raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", descriptor_path)
+    if raw_descriptor != fresh.descriptor:  # M34: the descriptor's bytes, not only its fields
         raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", descriptor_path)
     return vid

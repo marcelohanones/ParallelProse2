@@ -10,23 +10,23 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`, `c0def6d` for 4c's first approach); the round 34 and 35 changes are uncommitted. Landmarks, in order:
+Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d` and `7d8371c` (rounds 34 and 35). Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M33 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M35 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
 | 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
-| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice); 75 tests; the published word counts reproduce; open for Markim: the rebuild-on-verify rule and the descriptor's exact file set | Doing |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 81 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; open: the source-file read error, not yet ruled | Doing |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: the round 35 rules are all decided (M34 rebuild on verify; M35 the descriptor's exact file set). Then the 4c commit. Then the 4c commit, and
-the 4d fixtures (F6, F6b, F11, the F5 set as bytes). The Debord printed numbers (5) are needed before 4d can say both books run.
+Next: round 36 (DSH) applied; open: the source-file read error (no id ruled yet). Then the 4d fixtures. Then the 4d
+fixtures (F6, F6b, F11, the F5 set as bytes). The Debord printed numbers (5) are needed before 4d can say both books run.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -505,7 +505,8 @@ impossible.
 the manifest, and the encoding of the canonical serialization. Ruled by Markim in round 34: one `Inputs` snapshot is read
 per run and every stage works on its bytes, so a file changed mid-run cannot make the bytes inconsistent. A stage opens the
 zip from those bytes; it does not reopen a file. Each stage parses the zip separately: round 35 asked that the parsing be
-shared too, and that is not done. In `verify`, each artifact file is read once, and the bytes read are the ones hashed and
+shared too, and that is not done. A build parses the zip three times (`check_inputs`, `extract_inputs`, `spine_rows_inputs`),
+and every verify repeats those three in its M34 rebuild; the cost is the reason M34 excludes an artifact too large to rebuild. In `verify`, each artifact file is read once, and the bytes read are the ones hashed and
 parsed. The canonical JSON is UTF-8 with `ensure_ascii=False`. Premise: two reads can disagree, and the encoding changes the bytes that version_id
 hashes. Invalidated by: a stage that must reread a file the snapshot does not hold.
 
@@ -521,6 +522,18 @@ descriptor's `files` are exactly `records.jsonl` and `report.txt`; any other nam
 `E-ARTIFACT-MALFORMED` with the descriptor path. Premise: an artifact has two files and the descriptor is the commit point;
 an extra name would let a file ride along unhashed by the record and report checks. Invalidated by: an artifact that gains
 a third file.
+
+**M36 — the file field of a refusal.** Settles: what the `file=` locator of an artifact refusal names. Ruled by Markim in
+round 36: the artifact-relative name (`records.jsonl`, `report.txt`) for the two artifact files; the full path for the
+descriptor and for the artifact directory. Premise: a reader matches the locator against the artifact it holds, and the
+descriptor is the one file a reader is given by path. Invalidated by: an artifact whose files live in several directories.
+
+**M37 — an unreadable path is the missing-file id.** Settles: what an input or an artifact file that exists but cannot be
+read as a file stops as. Ruled by Markim in round 36: the same id as a missing one, `E-INPUT-MISSING` for the epub and the
+manifest, and `E-ARTIFACT-INCOMPLETE` for an artifact file (a directory, a permission error, a missing file). The file is the
+path, or the artifact-relative name under M36. Premise: a run cannot tell an unreadable file from a missing one without a
+second rule, and one id keeps the set of stops small. Gap left open: the source files that `version_id` reads (under
+`src/parallelprose2/`) raise an untyped `OSError` when unreadable; no id has been ruled for them.
 
 ## Open
 
