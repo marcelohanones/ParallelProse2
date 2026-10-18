@@ -202,7 +202,7 @@ it is claimed for that profile. On this machine the installed profiles are `head
 `dsh web` serves the browser UI and must be run from `<REPO>`. `dsh tui` does not exist here. The `web` runs are in the status below.
 
 **Status of this procedure.** Steps 1–5 and 9 are in place in `ParallelProse2`, built on 2026-10-17, committed at 00:01 the next day (`38dbc69`);
-step 6's commit of this section is pending. Step 8 has five recorded runs in `~/.dsh/sessions/`. A run's profile is
+step 6's commit of this section landed at 01:19 the next day (`fc25dda`). Step 8 has five recorded runs in `~/.dsh/sessions/`. A run's profile is
 inferred from two signals: whether its session is in the GUI's workspace registry (`~/.dsh/storages/workspace.json`),
 and whether its header carries an `agentPreset` field. No record names who issued a run.
 - `15c39d02` (2026-10-17, 23:29): outside the GUI by both signals, which is the basis for its `headless` label. The
@@ -295,7 +295,7 @@ settled. New points append.
 | P28 | Claude Code's automatic surface is wider than the doc's bullet: nested `.claude/CLAUDE.md` and `.claude/AGENTS.md` per directory, plus `rules/`, `skills/`, `commands/`, `agents/`, `output-styles/` under `.claude/` and `~/.claude/`. Both harnesses have nested candidates under different names and different walk rules — a second site for the same silent divergence as P25/P26 | settled — recorded | — |
 | P16 | Moving the store into the repo: **not done**, parked with P17 — its only consumers were layer 3 and a git pre-commit check. Untracked-and-not-ignored remains the choice if it is ever revisited | settled — parked | — |
 | P17 | Layer 3 on: **no.** dsh does not write memories; layers 1 and 2 cover the need | settled — no | — |
-| P18 | Commit `CLAUDE.md` **and this doc together**, so a clone never has the pointer without its target; `.gitignore` rides along | settled — commit both | user — run the commit |
+| P18 | Commit `CLAUDE.md` **and this doc together**, so a clone never has the pointer without its target; `.gitignore` rides along | settled — pointer in `38dbc69`, procedure in `fc25dda` | — |
 | P19 | The pointer section is public. Checked before deciding: neither file carries a home path or the username, and the only memory content published is layer 0's citation of the deleted case memory (the OpenAI conclusion, the cost problem, commit `024e4d8`) | settled — public | — |
 | P20 | Write the linter (needs P11 to flip: the form declared stable) | open | either, after P11 |
 | P21 | The write-time check must filter on file path (the memory store only). Content-only matching false-positives on this doc, which quotes the three markers, and on an `Edit` whose partial `new_string` carries `Decided on:` without the rest of the body. **Acked by dsh, with a refinement taken:** check the *post*-state via `PostToolUse` rather than simulating the edit at `PreToolUse`, since simulation re-implements Edit's matching and can diverge silently. Sufficient only while P7 holds (the checker signals, never acts) — **if P7 ever flips to "blocks", `PreToolUse` plus simulation becomes necessary and that risk returns**; the two are coupled | settled | — |
