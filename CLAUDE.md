@@ -2,7 +2,7 @@
 
 ## Fonte
 
-O documento de migração (`docs/documento_de_migracao.md`) dá as regras iniciais. Cada etapa tem um ledger próprio, mais específico, que registra as decisões tomadas depois: quando um ledger contradiz o documento de migração, o ledger vale. Para ingestão, o ledger é `docs/ingest.md`.
+O documento de migração (`docs/documento_de_migracao.md`) dá as regras iniciais. Cada etapa tem um ledger próprio, mais específico, que registra as decisões tomadas depois: quando um ledger contradiz o documento de migração, o ledger vale. Para ingestão, o ledger é `docs/ingest.md`. Para o contrato entre o retriever e a IA editorial, o ledger é `docs/contract_retriever_editorial.md`, acordado via CRITIQUE e não por uma etapa só.
 
 ## Escopo de leitura
 

@@ -1,7 +1,8 @@
 # Ingestion ledger
 
 This file is the ingestion ledger: its status, its decisions and its open items. `docs/ingest_fixtures.md` is the test
-set for these decisions. Nothing about ingestion is decided anywhere else in this repo.
+set for these decisions. Its scope is extraction and the identity of the artifact it writes. The retriever–editorial
+contract is in `docs/contract_retriever_editorial.md`.
 
 Precedence: this ledger governs over `docs/documento_de_migracao.md` where they differ, because it records later and
 more specific decisions. The migration doc sets the starting rules. CLAUDE.md's "Fonte" section states the same rule.
@@ -23,9 +24,9 @@ Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b 
 | 4d | Augustine fixtures pass twice: F5 B and C, F6, F6b and F11 committed as bytes; F5 A as the F3 rename, its artifact compared byte for byte; the twice rule for every committed fixture; F8, F9 and F9b derived in the tests | `tests/test_fixtures_4d.py`; 101 tests; committed as `10abbcb`; settled by DSH's round 42; the both-books proof is item 5 (Debord printed numbers) | Done |
 | 5 | Ingestion runs on Debord: printed numbers (D5) and the both-books proof | `printed_no` attached to the leaf paragraph after each `h3.num`: 221 numbers, 1 to 221 once each; nine epigraphs null; 146 kept; Debord builds, writes and verifies twice the same (230 records); settled by DSH's round 43; D5 is the next emitted paragraph (Markim); a non-integer printed number is E-PRINTED-NUMBER-MALFORMED (M43); uncommitted; 107 tests | Done |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | `tests/test_determinism.py` checks the "Also required" list on both books: two runs byte-identical with the same `version_id` and `content_hash`; an artifact against the other book's inputs refused as `E-ARTIFACT-DIFFERENT-INPUT`; equal `version_id` with an unequal `content_hash` refused as a content mismatch; no front matter or heading text in the records; the report's non-body rows and the dropped `<p>`; 112 tests; settled by DSH's round 44, with the heading text taken whole and the report's non-body rows pinned by href, class and reason; uncommitted | Done |
-| 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
+| 7 | Ingestion output as consumed by the retriever contract | ingestion's side is unchanged since item 6; the contract (D1–D3) is in `docs/contract_retriever_editorial.md` | Parked |
 
-Next: item 6 is settled (round 44). Landmark 7, the retriever output, stays Parked until the D1–D3 contract is settled.
+Next: item 6 is settled (round 44). Landmark 7 stays Parked until the contract ledger settles D1–D3.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -266,14 +267,6 @@ Invalidated by: Augustine failing a test that only applies to Debord.
 **D4 — ingestion before the retriever–editorial contract.** Settles: the order of work.
 Premise: the ingestion is the best-documented stage, and the contract's format depends on what ingestion emits.
 Invalidated by: ingestion output found unfit for the editorial AI's needs; then the contract would redefine it.
-
-**D1 — the editorial AI sends a closed directive, not text (parked with the contract).** Settles: who writes
-the next-round request. Premise: the retriever stays deterministic (premise 1 of the migration doc).
-Invalidated by: premise 1 changing to allow an LLM inside the retriever.
-
-**D2 — output unit (parked with the contract).** Open until the editorial AI's requirements are written.
-
-**D3 — per-block query cap (parked with the contract).** Open until the adaptive design exists.
 
 **D5 — `printed_no` is a second key, not the address.** Settles: the reader-facing citation for Debord.
 Premise: the reader must match the output to the printed book, and Debord's numbers are its own citation.
