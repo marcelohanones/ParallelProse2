@@ -1,0 +1,25 @@
+{
+  "edition": {
+    "title": "The Society of the Spectacle",
+    "translator": "Ken Knabb",
+    "year": 2002,
+    "source_file": "The_Society_of_the_Spectacle_(Knabb_2002)-Guy_Debord.epub"
+  },
+  "spine": [
+    {"href": "titlepage.xhtml", "class": "structural", "reason": "TOC label is Cover"},
+    {"href": "half.html", "class": "structural", "reason": "half-title page; no TOC entry"},
+    {"href": "title.html", "class": "structural", "reason": "title page; TOC label Title Page"},
+    {"href": "contents.html", "class": "structural", "reason": "contents list; TOC label Contents"},
+    {"href": "note.html", "class": "not-the-author", "reason": "translator's note by Ken Knabb (271 words of his prose about the translation); excluded so the translator's sentences are never addressed as Debord's"},
+    {"href": "ch-1.html", "class": "body", "chapter": "chapter-1"},
+    {"href": "ch-2.html", "class": "body", "chapter": "chapter-2"},
+    {"href": "ch-3.html", "class": "body", "chapter": "chapter-3"},
+    {"href": "ch-4.html", "class": "body", "chapter": "chapter-4"},
+    {"href": "ch-5.html", "class": "body", "chapter": "chapter-5"},
+    {"href": "ch-6.html", "class": "body", "chapter": "chapter-6"},
+    {"href": "ch-7.html", "class": "body", "chapter": "chapter-7"},
+    {"href": "ch-8.html", "class": "body", "chapter": "chapter-8"},
+    {"href": "ch-9.html", "class": "body", "chapter": "chapter-9"},
+    {"href": "index.html", "class": "structural", "reason": "generated map to printed numbers, not prose (M3); TOC label Index"}
+  ]
+}

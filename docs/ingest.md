@@ -12,18 +12,18 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in order:
 
-| # | landmark | state |
-|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M22 applied to this file | applied; DSH's acceptance of M7–M22 not on record |
-| 2 | Manifests: classification written for both books; edition values typed and reviewed | classification written; values not typed |
-| 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH's acceptance not on record |
-| 4 | Ingestion runs on Augustine, starting with F1 | not started; waiting on go |
-| 5 | Ingestion runs on Debord | not started |
-| 6 | Determinism and artifact checks: `version_id`, `content_hash` | not started |
-| 7 | Output ready for the retriever (contract D1–D3) | parked |
+| # | landmark | state | status |
+|---|---|---|---|
+| 1 | Spec: decisions D-order, D1–D6, M1–M25 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
+| 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
+| 4 | Ingestion runs on Augustine, starting with F1 | waiting on Markim's go to begin F1 | Not started |
+| 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
+| 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
+| 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: decide the three open choices (manifest format, error rule ids, stack), get DSH's acceptance of the fixtures or
-set it aside, then say go on F1. 
+Next: the three open choices are decided (M23–M25), the fixture designs are accepted by DSH (R28), F7's change is
+applied, and the manifests are written (landmark 2). Then say go on slice 1 (F1).
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -218,14 +218,14 @@ Required by the migration doc, one per known edge. Status against the two books:
 | test | covered by | status |
 |---|---|---|
 | file with no TOC entry is not a chapter and yields no address | Augustine `001`, `003`; Debord `half.html` | covered by data (classified structural) |
-| body file with no `chapter` id stops the run | none | **not covered** — needs a synthetic fixture |
-| chapter id assigned but no navPoint for it stops the run | none | **not covered** — needs a synthetic fixture (new with M8) |
+| body file with no `chapter` id stops the run | none | **not covered** — designed as F1; not built |
+| chapter id assigned but no navPoint for it stops the run | none | **not covered** — designed as F2; not built |
 | several TOC entries into one file keep every title and number | Debord: 221 numbered entries into 9 files | covered by data |
-| chapter split over several files: one chapter, spine order kept | none | **not covered** — needs a synthetic fixture (writable under M8) |
-| nested `<li><p>`: no duplicated text | none found | **not covered** — needs a synthetic fixture |
-| wrong extension: detected by content | none | **not covered** — needs a fixture |
-| internal line breaks: no artificial breaks mid-sentence | Augustine 4 `<br>` in `<p>`; Debord 1 in `ch-5` | covered by data |
-| spine item missing from the manifest stops the run | none | **not covered** — needs a synthetic fixture (M10) |
+| chapter split over several files: one chapter, spine order kept | none | **not covered** — designed as F3; not built |
+| nested `<li><p>`: no duplicated text | none found | **not covered** — designed as F4; not built |
+| wrong extension: detected by content | none | **not covered** — designed as F5; not built |
+| internal line breaks: no artificial breaks mid-sentence | Augustine 4 `<br>` in `<p>`; Debord 1 in `ch-5` | covered by data (and designed as F10) |
+| spine item missing from the manifest stops the run | none | **not covered** — designed as F6 (and F6b); not built |
 
 Also required:
 - Running ingestion twice gives byte-identical output with the same `version_id` and the same `content_hash`.
@@ -407,16 +407,41 @@ has no inline element, so the boundary rule M11 decided was never exercised.
 Invalidated by: a harness that can drive ingestion in-process and fault-inject, which would make the package-level
 tests fixtures like the rest.
 
+**M23 — the manifest is one JSON file per book, with a spine array.** Settles: the format of the manifest and what it
+holds. Ruled by Markim in round 28, on DSH's recommendation: one JSON file per book; a `spine` array in reading order
+with one object per spine item, `{href, class, chapter?, reason?}`; a separate `edition` object (title, translator,
+year, source file name) that is never an entry. Class is exactly `body`, `structural` or `not-the-author`; there is no
+`unclassified` value (M10). `chapter` is required for `body` (M8); `reason` is required for both non-body classes (M7).
+Phase 1 compares the array to the OPF spine index by index: same length, same href at each position; a duplicate href
+is a format error. Premise: a per-spine-item array makes both directions of the classification check, and the order
+check, one comparison; a reason written as data is printed and hashed, where a comment would drift. Invalidated by: a
+book whose spine cannot be listed by hand, or a need for comments the report must not carry.
+
+**M24 — error rule ids: eight, one per failure condition.** Settles: the machine-readable id of each stop. Ruled by
+Markim in round 28, on DSH's recommendation: `E-INPUT-NOT-EPUB` (F5 B and C), `E-SPINE-UNCLASSIFIED` (F6),
+`E-MANIFEST-ENTRY-NOT-IN-SPINE` (F6b), `E-BODY-NO-CHAPTER` (F1), `E-CHAPTER-NO-NAVPOINT` (F2),
+`E-ARTIFACT-DIFFERENT-INPUT` (F8, the unequal `version_id` refusal), `E-ARTIFACT-CONTENT-MISMATCH` (F9),
+`E-ARTIFACT-IDENTITY-MISMATCH` (F9b). Form: `E-` plus uppercase kebab; the noun names the object, the tail the
+condition; no numbers and no stage prefix. Two stops share an id only when they are the same condition: F5 B and C,
+and F8 with the `version_id` refusal. F9 and F9b do not share. Premise: the id names the condition, so the error line
+is unambiguous for a reader that matches on it. Invalidated by: a reader that must tell apart two fixtures that
+trigger the same condition.
+
+**M25 — slice 1 uses the standard library only.** Settles: the parser stack for the first build slice. Ruled by Markim
+in round 28, on DSH's recommendation: `zipfile` and `xml.etree.ElementTree`, nothing else. Premise: both epubs open
+with `zipfile`, their `.xhtml` and `.html` files parse with `xml.etree.ElementTree`, the only named entity is `&amp;`,
+and no DOCTYPE appears (checked by CC and DSH). Invalidated by: a book with an HTML named entity or malformed markup.
+In that case the parse error becomes a typed stop, and `lxml` is added then, not before.
+
 ## Open
 
-- **Fixtures** — designed, not built. `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
+- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); not built. `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
   F10–F12; no fixture file or test code exists yet. The two package-level tests of M22 are designed, not written.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
   figure reproduces under it.
-- **Manifest values.** The edition fields for each book (title, translator, year, source file name) are to be
-  typed in and reviewed once. Augustine's printed edition appears in `54_split_003` as "1921 Chatto & Windus
-  edition"; Debord's translator is listed in `content.opf` as creator (Knabb), with the 2002 edition from the file name.
-  Both values need review before they enter the hash.
+- **Manifest values.** Typed and confirmed by Markim: Augustine, "1921 Chatto & Windus edition" (`54_split_003`),
+  translator Edward Bouverie Pusey; Debord, translator Ken Knabb (`content.opf` creator), 2002 from the file name.
+  Written to `manifests/augustine.json` and `manifests/debord.json`.
 - **Augustine `citation_mark` and `printed_source`.** Not checked; default null, since no page markers were found.
 - **Augustine headings (A5).** Closed. Checked read-only: the first `h1`/`h2` of each Book file equals its navPoint
   label, 13 of 13.

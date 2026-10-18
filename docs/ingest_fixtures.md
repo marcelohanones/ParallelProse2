@@ -113,8 +113,9 @@ its expected outcome, and the defect it would catch. The rules are in [docs/inge
   (body, chapter `A`, with its navPoint) containing one text paragraph, one empty `<p>`, and one empty wrapper
   `<div>`.
 - **Expected.** The body file emits one paragraph, `index` 1 — the empty `<p>` consumes no address. The report
-  lists `cover.xhtml` and `note.xhtml` with class and reason, prints `ch_a.xhtml`'s word count as the number of
-  tokens its text carries (the empty `<p>` and the empty wrapper add none), lists the empty `<p>` with its
+  lists `cover.xhtml` and `note.xhtml` with class and reason, prints a word count for every spine item, including
+  `cover.xhtml` and `note.xhtml` as well as `ch_a.xhtml` (each count is the number of tokens its `<body>` text carries;
+  the empty `<p>` and the empty wrapper add none), lists the empty `<p>` with its
   position, does not list the empty wrapper, and prints the manifest hash and the `version_id`.
 - **Defect it catches.** A report that lists every file flatly, with no class and no reason; a report with no word
   count, or one that counts the empty elements; a report that omits the dropped empty `<p>`, leaving the gap between
@@ -184,7 +185,7 @@ its expected outcome, and the defect it would catch. The rules are in [docs/inge
 - **M15 (ruled):** a stop writes nothing that looks like an artifact, output is atomic, temporaries are cleaned on a
   typed stop, and the error line is machine-readable (conventions).
 - **M16 (ruled):** a chapter's label comes from any navPoint that maps to its files, first in spine order (F2, F11).
-- **M17 (ruled):** the fixture set is F1–F6 with F6b as a variant, plus F7–F9; every fixture runs twice.
+- **M17 (ruled; set superseded by M19 and M22):** the fixture set is F1–F6 with F6b as a variant, plus F7–F9; every fixture runs twice.
 - **M18 (ruled):** the order of checks is fixed — classification, then chapters, then paragraphs (F6's isolation).
 - **M19 (ruled):** the set extends to F9b, F10 and F11.
 - **M20 (ruled):** verification recomputes each file's sha256 from disk; the stored `content_hash` is never trusted
