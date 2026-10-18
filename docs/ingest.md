@@ -463,6 +463,19 @@ check runs in phase 1, after the class check and before the order check. Form as
 for both non-body classes, and a missing reason is the same kind of gap as an unclassified item, so it needs its own
 stop. Invalidated by: a rule that allows a non-body entry without a reason.
 
+**M29 — four extraction choices in paragraph extraction.** Settles: how the extraction treats structure the ledger does
+not name. Recorded by CC in round 33 for Markim's review; not yet ruled. (1) Containers that are neither block nor inline
+(`ul`, `ol`, `body`) pass their children through, without a paragraph of their own; their direct text, if any, would be
+a paragraph. Premise: D6 names only `p`, `div`, `blockquote` and `li` as blocks, and a `ul` holds only `li` blocks.
+Invalidated by: a container with direct text that is not a block. (2) The inline set is `span`, `em`, `i`, `b`, `strong`,
+`a`, `small`, `sup`, `sub`, `u`, `font`, `abbr`, `cite`, `code`, `q` and `img`; an element outside it is treated as a
+block. Premise: the set is what the two books use. Invalidated by: a new inline element that splits a run when it should
+not. (3) Whitespace for normalization is Unicode whitespace, so a non-breaking space collapses to a space. Premise:
+Debord has 19 non-breaking spaces in its html and Augustine has one. Invalidated by: a rule that keeps them as text.
+(4) A blockquote's attribution `<p>` is not text of the body; it is the `source` of the quoted paragraphs, and it still
+counts toward the position of a dropped `<p>`. Premise: D6 already excludes it, and the position stays the `<p>` ordinal
+in the file. Invalidated by: a dropped `<p>` report that is meant to count only text paragraphs.
+
 ## Open
 
 - **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
