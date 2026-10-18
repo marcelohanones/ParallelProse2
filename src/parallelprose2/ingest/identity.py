@@ -9,6 +9,8 @@ import hashlib
 import json
 import os
 
+from parallelprose2.ingest.errors import IngestError
+
 PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -26,15 +28,23 @@ def sha256_file(path: str) -> str:
 
 
 def source_files(root: str = PACKAGE_ROOT) -> list[list[str]]:
-    """Every source file under root, as [relative path, sha256] pairs sorted by path."""
+    """Every source file under root, as [relative path, sha256] pairs sorted by path. A directory that cannot be walked,
+    or a file that cannot be read, stops as E-SOURCE-UNREADABLE (M38)."""
+    def unwalkable(error):
+        raise IngestError("E-SOURCE-UNREADABLE", error.filename or root)
+
     pairs = []
-    for dirpath, dirnames, filenames in os.walk(root):
+    for dirpath, dirnames, filenames in os.walk(root, onerror=unwalkable):
         dirnames[:] = [d for d in dirnames if d != "__pycache__"]
         for name in filenames:
             if name.endswith(".pyc"):
                 continue
             full = os.path.join(dirpath, name)
-            pairs.append([os.path.relpath(full, root).replace(os.sep, "/"), sha256_file(full)])
+            try:
+                digest = sha256_file(full)
+            except OSError:
+                raise IngestError("E-SOURCE-UNREADABLE", full) from None
+            pairs.append([os.path.relpath(full, root).replace(os.sep, "/"), digest])
     return sorted(pairs)
 
 

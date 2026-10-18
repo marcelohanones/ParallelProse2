@@ -10,23 +10,23 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d` and `7d8371c` (rounds 34 and 35). Landmarks, in order:
+Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d`, `7d8371c` and `dcc6088` (rounds 34, 35 and 36). Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M35 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M39 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
 | 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
-| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 81 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; open: the source-file read error, not yet ruled | Doing |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 86 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39) | Doing |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: round 36 (DSH) applied; open: the source-file read error (no id ruled yet). Then the 4d fixtures. Then the 4d
-fixtures (F6, F6b, F11, the F5 set as bytes). The Debord printed numbers (5) are needed before 4d can say both books run.
+Next: the write I/O rule is M39. Then the 4d fixtures (F6, F6b, F11, the F5 set as bytes). Then the 4d fixtures (F6, F6b,
+F11, the F5 set as bytes); the Debord printed numbers (5) are needed before 4d can say both books run.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -228,7 +228,7 @@ Required by the migration doc, one per known edge. Status against the two books:
 | chapter split over several files: one chapter, spine order kept | F3 (committed bytes) | **covered** — F3 |
 | nested `<li><p>`: no duplicated text | F4 (committed bytes) | **covered** — F4 |
 | wrong extension: detected by content | F5 B and C as temporary zips; F5 A on F3 (temporary rename) | **covered by tests**; the F5 fixture set is not committed as bytes (4d) |
-| internal line breaks: no artificial breaks mid-sentence | Augustine 4 `<br>` in `<p>`; Debord 1 in `ch-5` | covered by data (and designed as F10) |
+| internal line breaks: no artificial breaks mid-sentence | Augustine 4 `<br>` in `<p>`; Debord 1 in `ch-5` | covered — F10 (committed bytes), and by data |
 | spine item missing from the manifest stops the run | manifest mutations of the real Augustine | **covered by tests**; F6 and F6b not committed as bytes (4d) |
 
 Also required:
@@ -534,6 +534,19 @@ manifest, and `E-ARTIFACT-INCOMPLETE` for an artifact file (a directory, a permi
 path, or the artifact-relative name under M36. Premise: a run cannot tell an unreadable file from a missing one without a
 second rule, and one id keeps the set of stops small. Gap left open: the source files that `version_id` reads (under
 `src/parallelprose2/`) raise an untyped `OSError` when unreadable; no id has been ruled for them.
+
+**M38 — an unreadable source file is its own stop.** Settles: the id for a source file, or a directory of the source set, that
+cannot be read. Ruled by Markim in round 37 on DSH's review: `E-SOURCE-UNREADABLE`, with the source path as the file. It is
+a new class, not `E-INPUT-MISSING`: the inputs are the user's epub and manifest, and the source set is the code's identity; a
+broken installation is not a missing book. Premise: `version_id` reads every source file, and an unreadable directory was
+silently skipped, which changed the identity without a stop. Invalidated by: a source set that is read from somewhere other
+than the package directory.
+
+**M39 — a failed write is a typed stop.** Settles: what an OS error while writing the artifact stops as. Ruled by Markim in
+round 37: `E-ARTIFACT-WRITE-FAILED`, with the output path as the file. The stop removes the temporaries it made and any renamed
+file, so it leaves no artifact (M15); this is the typed stop that M21's cleanup describes. A crash that is not an OS error
+(a kill) still leaves the temporaries, as M21 says. Premise: a read-only or occupied output path is an operator error that a
+reader must see by name, not a traceback. Invalidated by: a write that cannot fail with an OS error.
 
 ## Open
 

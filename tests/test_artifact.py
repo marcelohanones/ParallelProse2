@@ -441,6 +441,54 @@ class ArtifactRound34(TempCase):
             build(self.dir.name, F7_MANIFEST)
         self.assertEqual(caught.exception.error_line(), f"E-INPUT-MISSING file={self.dir.name}")
 
+    def test_unreadable_source_file_stops_as_source_unreadable(self):
+        root = self.path("package")
+        shutil.copytree(identity.PACKAGE_ROOT, root, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        target = os.path.join(root, "ingest", "errors.py")
+        os.chmod(target, 0)
+        self.addCleanup(os.chmod, target, 0o644)
+        with self.assertRaises(IngestError) as caught:
+            identity.version_id(F7_EPUB, F7_MANIFEST, root=root)
+        self.assertEqual(caught.exception.error_line(), f"E-SOURCE-UNREADABLE file={target}")
+
+    def test_unwalkable_source_directory_stops_instead_of_being_skipped(self):
+        root = self.path("package")
+        shutil.copytree(identity.PACKAGE_ROOT, root, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        folder = os.path.join(root, "ingest")
+        os.chmod(folder, 0)
+        self.addCleanup(os.chmod, folder, 0o755)
+        with self.assertRaises(IngestError) as caught:
+            identity.version_id(F7_EPUB, F7_MANIFEST, root=root)
+        self.assertEqual(caught.exception.rule_id, "E-SOURCE-UNREADABLE")
+
+    def test_unreadable_artifact_file_is_incomplete(self):
+        out = self.make_f7()
+        target = os.path.join(out, RECORDS)
+        os.chmod(target, 0)
+        self.addCleanup(os.chmod, target, 0o644)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={RECORDS}")
+
+    def test_output_path_that_is_a_file_is_write_failed_and_leaves_nothing(self):
+        target = self.path("occupied")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write("not a directory\n")
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, F7_MANIFEST), target)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={target}")
+        self.assertEqual(sorted(os.listdir(self.dir.name)), ["occupied"])
+
+    def test_read_only_output_directory_is_write_failed_and_leaves_nothing(self):
+        out = self.path("readonly")
+        os.makedirs(out)
+        os.chmod(out, 0o500)
+        self.addCleanup(os.chmod, out, 0o755)
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, F7_MANIFEST), out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertEqual(os.listdir(out), [])
+
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET
         from parallelprose2.ingest.artifact import word_count

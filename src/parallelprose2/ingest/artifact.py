@@ -117,16 +117,34 @@ def build_inputs(inp: Inputs) -> Built:
 
 
 def write(built: Built, out_dir: str) -> None:
-    """Write the three files: temporaries first, then renames, the descriptor last (M15, M21)."""
-    os.makedirs(out_dir, exist_ok=True)
+    """Write the three files: temporaries first, then renames, the descriptor last (M15, M21). An OS error while writing
+    is E-ARTIFACT-WRITE-FAILED (M39); the stop removes the temporaries and the renamed files it made."""
     temporaries = {}
-    for name, data in ((RECORDS, built.records), (REPORT, built.report), (DESCRIPTOR, built.descriptor)):
-        fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=f".{name}.", suffix=".tmp")
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-        temporaries[name] = tmp
-    for name in (RECORDS, REPORT, DESCRIPTOR):
-        os.replace(temporaries[name], os.path.join(out_dir, name))
+    renamed = []
+    try:
+        os.makedirs(out_dir, exist_ok=True)
+        for name, data in ((RECORDS, built.records), (REPORT, built.report), (DESCRIPTOR, built.descriptor)):
+            fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=f".{name}.", suffix=".tmp")
+            temporaries[name] = tmp
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+        for name in (RECORDS, REPORT, DESCRIPTOR):
+            target = os.path.join(out_dir, name)
+            os.replace(temporaries.pop(name), target)
+            renamed.append(target)
+    except OSError:
+        for tmp in temporaries.values():
+            _remove_quietly(tmp)
+        for target in renamed:
+            _remove_quietly(target)
+        raise IngestError("E-ARTIFACT-WRITE-FAILED", out_dir) from None
+
+
+def _remove_quietly(path: str) -> None:
+    try:
+        os.remove(path)
+    except OSError:
+        pass
 
 
 def _read_file(path: str, locator: str) -> bytes:
