@@ -11,3 +11,10 @@ wheels/
 
 # Harness-local instruction overlay (symlink into ~/.claude; machine-specific)
 AGENTS.local.md
+
+# macOS and IDE metadata (machine-specific)
+.DS_Store
+.idea/
+
+# Local data, not versioned
+data/
