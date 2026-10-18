@@ -1,10 +1,29 @@
-# Ingestion spec
+# Ingestion ledger
 
-Status: spec only. No code exists for this stage in this repository (`src/parallelprose2` is a stub). The
-old implementation in `~/Developer/personal/ParallelProse/src/ParallelProse/ingest.py` is a reference, not the
-baseline. Where this spec differs from it, the difference is listed under "Decisions".
+This file is the ingestion ledger: its status, its decisions and its open items. `docs/ingest_fixtures.md` is the test
+set for these decisions. Nothing about ingestion is decided anywhere else in this repo.
+
+Precedence: this ledger governs over `docs/documento_de_migracao.md` where they differ, because it records later and
+more specific decisions. The migration doc sets the starting rules. CLAUDE.md's "Fonte" section states the same rule.
 
 Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para a ingestão", as amended by M1.
+
+## Status
+
+No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in order:
+
+| # | landmark | state |
+|---|---|---|
+| 1 | Spec: decisions D-order, D1–D6, M1–M22 applied to this file | applied; DSH's acceptance of M7–M22 not on record |
+| 2 | Manifests: classification written for both books; edition values typed and reviewed | classification written; values not typed |
+| 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH's acceptance not on record |
+| 4 | Ingestion runs on Augustine, starting with F1 | not started; waiting on go |
+| 5 | Ingestion runs on Debord | not started |
+| 6 | Determinism and artifact checks: `version_id`, `content_hash` | not started |
+| 7 | Output ready for the retriever (contract D1–D3) | parked |
+
+Next: decide the three open choices (manifest format, error rule ids, stack), get DSH's acceptance of the fixtures or
+set it aside, then say go on F1. 
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -323,7 +342,7 @@ Invalidated by: a manifest format that must emit a value for every spine item it
 **M11 — an element boundary counts as a word boundary.** Settles: how the report's word count splits across tags.
 Premise: the rule as first stated ("tokens in the text of the body") gives 23 for `title.html` and 10 for
 `54_split_000` under a literal joining of the text, and 24 and 12 when element edges separate; the spec published
-the second pair without stating the rule, so two implementations could disagree on two of the eleven files measured.
+the second pair without stating the rule, so two implementations could disagree on two of the seven files measured.
 Invalidated by: a decision that the count should follow what a reader sees, joined — the figures then become 23 and
 10, and the published list changes.
 
@@ -409,11 +428,8 @@ tests fixtures like the rest.
 - Debord: spine `<p>` 340; with a word character 331; blank 9. Body `ch-1`–`ch-9`: 238 `<p>` with text plus
   1 `<div>` (printed number 146). Minus 9 attribution lines, 230 paragraphs = 221 numbered paragraphs + 9
   epigraphs. Paragraphs run 1–230 with front matter and the index as structural.
-- Old ingest (`ingest.py`, reference only; it also promotes headings): 473 paragraphs for Augustine (460 `<p>`
+- Context, not binding: the old ingest (`ingest.py`) also promoted headings. It gives 473 paragraphs for Augustine (460 `<p>`
   + 13 `<h1>`), 238 for Debord (220 numbered `<p>` + 9 epigraphs + 9 `<h2>` chapter heads). These are not
   comparable to the counts above. Do not compare artifacts across the two pipelines.
 
 
-## Visibility test 2 (remove after check)
-
-Visibility token: VIS-R3X8-2026-10-17-B. Remove this section once DSH has reported whether it sees the token.
