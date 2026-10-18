@@ -304,6 +304,95 @@ class ArtifactRound34(TempCase):
                 build(copy, F7_MANIFEST)
             self.assertEqual(caught.exception.error_line(), "E-XHTML-MALFORMED file=cover.xhtml")
 
+    def test_f8_second_run_gives_the_same_line(self):
+        out = self.make_f7()
+        with open(F7_MANIFEST, encoding="utf-8") as f:
+            manifest = json.load(f)
+        manifest["spine"][1]["reason"] = "edited reason"
+        edited = self.path("edited.manifest.json")
+        with open(edited, "w", encoding="utf-8") as f:
+            json.dump(manifest, f)
+        lines = []
+        for _ in range(2):
+            with self.assertRaises(IngestError) as caught:
+                verify(out, F7_EPUB, edited)
+            lines.append(caught.exception.error_line())
+        self.assertEqual(lines[0], lines[1])
+        self.assertEqual(lines[0], f"E-ARTIFACT-DIFFERENT-INPUT file={out}")
+
+    def test_f9b_second_run_gives_the_same_line(self):
+        out = self.make_f7()
+        lines = self.read(out, RECORDS).splitlines()
+        record = json.loads(lines[0])
+        record["version_id"] = "0" * 64
+        lines[0] = canonical(record)
+        self.write_bytes(out, RECORDS, b"\n".join(lines) + b"\n")
+        descriptor = self.descriptor(out)
+        for entry in descriptor["files"]:
+            if entry["name"] == RECORDS:
+                entry["sha256"] = sha256_bytes(self.read(out, RECORDS))
+        descriptor["content_hash"] = content_hash({e["name"]: e["sha256"] for e in descriptor["files"]})
+        self.save_descriptor(out, descriptor)
+        seen = []
+        for _ in range(2):
+            with self.assertRaises(IngestError) as caught:
+                verify(out, F7_EPUB, F7_MANIFEST)
+            seen.append(caught.exception.error_line())
+        self.assertEqual(seen[0], seen[1])
+        self.assertEqual(seen[0], f"E-ARTIFACT-IDENTITY-MISMATCH file={RECORDS} record=1")
+
+    def test_missing_report_file_is_incomplete(self):
+        out = self.make_f7()
+        os.remove(os.path.join(out, REPORT))
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-INCOMPLETE file={os.path.join(out, REPORT)}")
+
+    def test_records_that_are_not_json_are_malformed_at_the_line(self):
+        out = self.make_f7()
+        self.write_bytes(out, RECORDS, b"{not json\n")
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={RECORDS} record=1")
+
+    def test_report_that_is_not_utf8_is_malformed(self):
+        out = self.make_f7()
+        self.write_bytes(out, REPORT, b"\xff\xfe not utf-8\n")
+        descriptor = self.descriptor(out)
+        for entry in descriptor["files"]:
+            if entry["name"] == REPORT:
+                entry["sha256"] = sha256_bytes(self.read(out, REPORT))
+        descriptor["content_hash"] = content_hash({e["name"]: e["sha256"] for e in descriptor["files"]})
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={os.path.join(out, REPORT)}")
+
+    def test_consistent_spine_line_edit_in_the_report_is_a_content_mismatch(self):
+        out = self.make_f7()
+        report = self.read(out, REPORT).decode("utf-8")
+        report = report.replace("spine\tch_a.xhtml\tbody\t5\tA", "spine\tch_a.xhtml\tbody\t6\tA")
+        self.write_bytes(out, REPORT, report.encode("utf-8"))
+        descriptor = self.descriptor(out)
+        for entry in descriptor["files"]:
+            if entry["name"] == REPORT:
+                entry["sha256"] = sha256_bytes(self.read(out, REPORT))
+        descriptor["content_hash"] = content_hash({e["name"]: e["sha256"] for e in descriptor["files"]})
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-CONTENT-MISMATCH file={REPORT}")
+
+    def test_descriptor_with_an_extra_file_is_malformed(self):
+        out = self.make_f7()
+        self.write_bytes(out, "extra.txt", b"extra\n")
+        descriptor = self.descriptor(out)
+        descriptor["files"].append({"name": "extra.txt", "sha256": sha256_bytes(b"extra\n")})
+        self.save_descriptor(out, descriptor)
+        with self.assertRaises(IngestError) as caught:
+            verify(out, F7_EPUB, F7_MANIFEST)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-MALFORMED file={os.path.join(out, DESCRIPTOR)}")
+
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET
         from parallelprose2.ingest.artifact import word_count

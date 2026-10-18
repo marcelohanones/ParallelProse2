@@ -110,7 +110,7 @@ def _collect(el, quoted, source, out, state, skip=frozenset()):
 
 def _read_body(z, href):
     """The body element of a body file. A member the OPF names but the zip lacks is E-PACKAGE-MALFORMED (M27); a file
-    that is not well-formed XHTML, or has no body, is E-XHTML-MALFORMED (M30)."""
+    that is not well-formed XHTML, or has no body, is E-XHTML-MALFORMED (M31)."""
     try:
         data = z.read(href)
     except KeyError:

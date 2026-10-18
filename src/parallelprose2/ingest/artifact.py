@@ -149,14 +149,18 @@ def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
         stored_content_hash = descriptor["content_hash"]
     except (ValueError, KeyError, TypeError):
         raise IngestError("E-ARTIFACT-MALFORMED", descriptor_path) from None  # M32
+    if len(descriptor["files"]) != 2 or set(stored) != {RECORDS, REPORT}:  # M35
+        raise IngestError("E-ARTIFACT-MALFORMED", descriptor_path)
 
     records_path = os.path.join(artifact_dir, RECORDS)
     report_path = os.path.join(artifact_dir, REPORT)
-    stored_records = _read_file(records_path)
-    stored_report = _read_file(report_path)
-    recomputed = {}
+    # Each artifact file is read once; the bytes read here are the ones hashed and parsed.
+    files = {}
     for name in sorted(set(stored) | {RECORDS, REPORT}):
-        recomputed[name] = sha256_bytes(_read_file(os.path.join(artifact_dir, name)))
+        files[name] = _read_file(os.path.join(artifact_dir, name))
+    stored_records = files[RECORDS]
+    stored_report = files[REPORT]
+    recomputed = {name: sha256_bytes(data) for name, data in files.items()}
 
     if version_id_of(inp.epub, inp.manifest) != vid:
         raise IngestError("E-ARTIFACT-DIFFERENT-INPUT", artifact_dir)
@@ -167,20 +171,25 @@ def verify(artifact_dir: str, epub_path: str, manifest_path: str) -> str:
             raise IngestError("E-ARTIFACT-MALFORMED", RECORDS, record=number) from None  # M32
         if record_vid != vid:
             raise IngestError("E-ARTIFACT-IDENTITY-MISMATCH", RECORDS, record=number)
-    report_vids = [line.split("\t", 1)[1] for line in stored_report.decode("utf-8").splitlines() if line.startswith("version-id\t")]
+    try:
+        report_text = stored_report.decode("utf-8")
+    except UnicodeDecodeError:
+        raise IngestError("E-ARTIFACT-MALFORMED", report_path) from None
+    report_vids = [line.split("\t", 1)[1] for line in report_text.splitlines() if line.startswith("version-id\t")]
     if report_vids != [vid]:
         raise IngestError("E-ARTIFACT-IDENTITY-MISMATCH", REPORT)
 
-    if recomputed != {name: stored.get(name) for name in recomputed} or content_hash(recomputed) != stored_content_hash:
-        fresh = build_inputs(inp)
-        fresh_records = fresh.records.splitlines()
-        stored_lines = stored_records.splitlines()
-        for number, (old, new) in enumerate(zip(stored_lines, fresh_records), start=1):
-            if old != new:
-                raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", RECORDS, record=number)
-        if len(stored_lines) != len(fresh_records):
-            raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", RECORDS, record=min(len(stored_lines), len(fresh_records)) + 1)
-        if stored_report != fresh.report:
-            raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", REPORT)
+    # M34: always rebuild from the inputs and compare every byte; a consistent edit of any file is then a mismatch.
+    fresh = build_inputs(inp)
+    fresh_records = fresh.records.splitlines()
+    stored_lines = stored_records.splitlines()
+    for number, (old, new) in enumerate(zip(stored_lines, fresh_records), start=1):
+        if old != new:
+            raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", RECORDS, record=number)
+    if len(stored_lines) != len(fresh_records):
+        raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", RECORDS, record=min(len(stored_lines), len(fresh_records)) + 1)
+    if stored_report != fresh.report:
+        raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", REPORT)
+    if recomputed != stored or content_hash(recomputed) != stored_content_hash:
         raise IngestError("E-ARTIFACT-CONTENT-MISMATCH", descriptor_path)
     return vid
