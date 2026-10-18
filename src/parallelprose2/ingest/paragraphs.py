@@ -30,6 +30,7 @@ class Paragraph:
     text: str
     quoted: bool
     source: str | None
+    printed_no: int | None = None  # D5: the h3.num that precedes the leaf block (Debord); None otherwise
 
 
 @dataclass(frozen=True)
@@ -61,9 +62,15 @@ def _inline_text(el: ET.Element) -> str:
 
 
 class _State:
-    def __init__(self):
+    def __init__(self, href: str = ""):
+        self.href = href  # the file being read, for the error locator
         self.p_count = 0  # <p> elements seen in the current file
         self.dropped: list[int] = []
+        self.pending_number: int | None = None  # an h3.num waiting for its leaf block (D5)
+
+    def take_number(self) -> int | None:
+        number, self.pending_number = self.pending_number, None
+        return number
 
 
 def _collect(el, quoted, source, out, state, skip=frozenset()):
@@ -74,7 +81,7 @@ def _collect(el, quoted, source, out, state, skip=frozenset()):
         text = normalize("".join(buf))
         buf.clear()
         if text:
-            out.append((text, quoted, source))
+            out.append((text, quoted, source, state.take_number()))
 
     if el.text:
         buf.append(el.text)
@@ -94,7 +101,11 @@ def _collect(el, quoted, source, out, state, skip=frozenset()):
         elif tag in INLINE_TAGS:
             buf.append(_inline_text(child))
         elif tag in HEADING_TAGS:
-            pass
+            if tag == "h3" and "num" in (child.get("class") or "").split():
+                try:
+                    state.pending_number = int(normalize(_inline_text(child)))
+                except ValueError:  # M43: a printed number is an integer, or the book is malformed
+                    raise IngestError("E-PRINTED-NUMBER-MALFORMED", state.href) from None
         elif tag == "blockquote":
             flush()
             attribution = [c for c in child if _local(c.tag) == "p" and "attrib" in (c.get("class") or "")]
@@ -145,12 +156,12 @@ def extract_inputs(inp: Inputs) -> Extraction:
             if entry.cls != "body":
                 continue
             body = _read_body(z, href)
-            out: list[tuple[str, bool, str | None]] = []
-            state = _State()
+            out: list[tuple[str, bool, str | None, int | None]] = []
+            state = _State(href)
             _collect(body, False, None, out, state)
             for position in state.dropped:
                 dropped.append(Dropped(href=href, position=position))
-            for text, quoted, source in out:
+            for text, quoted, source, printed_no in out:
                 seq[entry.chapter] = seq.get(entry.chapter, 0) + 1
                 paragraphs.append(
                     Paragraph(
@@ -161,6 +172,7 @@ def extract_inputs(inp: Inputs) -> Extraction:
                         text=text,
                         quoted=quoted,
                         source=source,
+                        printed_no=printed_no,
                     )
                 )
     return Extraction(paragraphs=tuple(paragraphs), dropped=tuple(dropped))

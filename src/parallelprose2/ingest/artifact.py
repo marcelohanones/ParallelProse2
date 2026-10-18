@@ -86,7 +86,7 @@ def build_inputs(inp: Inputs) -> Built:
             "chapter": p.chapter,
             "chapter_seq": p.chapter_seq,
             "index": p.index,
-            "printed_no": None,
+            "printed_no": p.printed_no,
             "quoted": p.quoted,
             "source": p.source,
             "text": p.text,

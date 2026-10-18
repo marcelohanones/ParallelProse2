@@ -14,18 +14,18 @@ Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b 
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M42 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M43 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
 | 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
 | 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 93 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39); round 38: a failed replace leaves no temporary; 93 tests; the existing-directory rule is M40 and M41; the created-directory flag is set only on this run's own makedirs (round 40); the race between two writers is out of scope (M42), so 4c is closed for a single-writer output directory (any artifact file in the directory is a refusal; a broken symlink named `descriptor.json` counts as present; a stop removes the directory it created) | Done |
 | 4d | Augustine fixtures pass twice: F5 B and C, F6, F6b and F11 committed as bytes; F5 A as the F3 rename, its artifact compared byte for byte; the twice rule for every committed fixture; F8, F9 and F9b derived in the tests | `tests/test_fixtures_4d.py`; 101 tests; committed as `10abbcb`; settled by DSH's round 42; the both-books proof is item 5 (Debord printed numbers) | Done |
-| 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
+| 5 | Ingestion runs on Debord: printed numbers (D5) and the both-books proof | `printed_no` attached to the leaf paragraph after each `h3.num`: 221 numbers, 1 to 221 once each; nine epigraphs null; 146 kept; Debord builds, writes and verifies twice the same (230 records); settled by DSH's round 43; D5 is the next emitted paragraph (Markim); a non-integer printed number is E-PRINTED-NUMBER-MALFORMED (M43); uncommitted; 107 tests | Done |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: DSH reviews the built 4d fixtures; when both agree, 4d is settled. Item 5, the Debord printed numbers, carries the both-books proof.
+Next: item 5 is settled (M43 applied; commit pending Markim's go). Item 6, determinism and artifact checks, is next.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -146,7 +146,7 @@ contract.
 
 - The printed number is the text of `<h3 class="num">N</h3>`. Its `id` (`toc_N`) restarts in every chapter, so
   it is not a key; `printed_no` is.
-- Each number covers the single leaf block that follows it. Verified: 221 numbers, 1–221, no duplicates, no
+- Each number covers the next emitted paragraph after its `h3.num` (Markim, round 43: the code's rule; a dropped empty `<p>` or a heading between does not change which paragraph takes it, since the number waits for the next paragraph emitted). Verified: 221 numbers, 1–221, no duplicates, no
   gaps; every number covers exactly one block.
 - Each chapter opens with a `blockquote` holding an epigraph (quote + attribution). The 9 epigraphs are
   paragraphs (`quoted=true`, `source` = attribution) with `printed_no` null.
@@ -563,6 +563,11 @@ Markim in round 40: out of scope for 4c. The check-then-rename window between M4
 guarded by a lock or a private directory; the artifact is written by one process into a directory it owns. Premise: the two
 books and the tests run one write at a time, and a lock would be a mechanism the ledger does not yet need. Invalidated by: a
 second writer of the same artifact directory, or a need to write concurrently.
+
+**M43 — a non-integer printed number is a typed stop.** Settles: what an `h3.num` that is not an integer does. Ruled by Markim in
+round 43: `E-PRINTED-NUMBER-MALFORMED`, with the href of the file as the locator. Premise: D5 needs an integer, and an
+unreadable number would otherwise put a traceback where a typed stop belongs. Invalidated by: a book whose printed numbers are
+not integers, which would need a rule for them.
 
 ## Open
 
