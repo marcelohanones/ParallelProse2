@@ -17,7 +17,7 @@ No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in or
 | 1 | Spec: decisions D-order, D1–D6, M1–M25 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
-| 4 | Ingestion runs on Augustine, starting with F1 | slice 1 built in `src/parallelprose2/ingest/` and tested (14 tests): dispatch, readers, phases 1–2, F1 stop; no paragraphs, no artifact writing yet; uncommitted | Doing |
+| 4 | Ingestion runs on Augustine, starting with F1 | slice 1 built in `src/parallelprose2/ingest/` and tested (14 tests): dispatch, readers, phases 1–2, F1 stop; no paragraphs, no artifact writing yet; committed as `e4f36dd`, manifest ids in M26 as `3871237` | Doing |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
@@ -422,7 +422,8 @@ Markim in round 28, on DSH's recommendation: `E-INPUT-NOT-EPUB` (F5 B and C), `E
 `E-MANIFEST-ENTRY-NOT-IN-SPINE` (F6b), `E-BODY-NO-CHAPTER` (F1), `E-CHAPTER-NO-NAVPOINT` (F2),
 `E-ARTIFACT-DIFFERENT-INPUT` (F8, the unequal `version_id` refusal), `E-ARTIFACT-CONTENT-MISMATCH` (F9),
 `E-ARTIFACT-IDENTITY-MISMATCH` (F9b). Form: `E-` plus uppercase kebab; the noun names the object, the tail the
-condition; no numbers and no stage prefix. Two stops share an id only when they are the same condition: F5 B and C,
+condition; no numbers and no stage prefix. The `E-` says the id is an error, the stop that the M15 error line carries;
+it marks no stage, version or track, and it was in the form CC proposed in R28 (`E-BODY-NO-CHAPTER`). Two stops share an id only when they are the same condition: F5 B and C,
 and F8 with the `version_id` refusal. F9 and F9b do not share. Premise: the id names the condition, so the error line
 is unambiguous for a reader that matches on it. Invalidated by: a reader that must tell apart two fixtures that
 trigger the same condition.
