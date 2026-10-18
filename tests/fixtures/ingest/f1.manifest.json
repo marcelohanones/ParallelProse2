@@ -1,0 +1,13 @@
+{
+  "edition": {
+    "title": "Fixture F1",
+    "translator": null,
+    "year": null,
+    "source_file": "f1.epub"
+  },
+  "spine": [
+    {"href": "cover.xhtml", "class": "structural", "reason": "cover, no prose"},
+    {"href": "ch_a.xhtml", "class": "body", "chapter": "A"},
+    {"href": "ch_b.xhtml", "class": "body"}
+  ]
+}

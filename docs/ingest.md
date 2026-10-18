@@ -17,13 +17,13 @@ No code exists for this stage (`src/parallelprose2` is a stub). Landmarks, in or
 | 1 | Spec: decisions D-order, D1–D6, M1–M25 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
-| 4 | Ingestion runs on Augustine, starting with F1 | waiting on Markim's go to begin F1 | Not started |
+| 4 | Ingestion runs on Augustine, starting with F1 | slice 1 built in `src/parallelprose2/ingest/` and tested (14 tests): dispatch, readers, phases 1–2, F1 stop; no paragraphs, no artifact writing yet; uncommitted | Doing |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | checked on a real run of both books; rules in Determinism and Version id | Not started |
 | 7 | Output ready for the retriever (contract D1–D3) | contract D1–D3 is open; the output format depends on it | Parked |
 
-Next: the three open choices are decided (M23–M25), the fixture designs are accepted by DSH (R28), F7's change is
-applied, and the manifests are written (landmark 2). Then say go on slice 1 (F1).
+Next: slice 1 is built and passes its tests, uncommitted. Markim decides the three provisional manifest ids (Open). Then
+the commit, then the next step, which is not yet scoped.
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -435,7 +435,10 @@ In that case the parse error becomes a typed stop, and `lxml` is added then, not
 
 ## Open
 
-- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); not built. `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
+- **Provisional error ids** — slice 1 raises three manifest ids that M24 does not list: `E-MANIFEST-DUPLICATE-HREF`,
+  `E-MANIFEST-ORDER-MISMATCH` and `E-MANIFEST-CLASS-INVALID`. They are in `src/parallelprose2/ingest/check.py`, marked
+  provisional. Markim decides whether they enter M24 and under what names.
+- **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied); only F1 is built (`tests/fixtures/ingest/`). `docs/ingest_fixtures.md` holds F1–F6 (F6b as a variant), F7–F9, F9b and
   F10–F12; no fixture file or test code exists yet. The two package-level tests of M22 are designed, not written.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published
   figure reproduces under it.
