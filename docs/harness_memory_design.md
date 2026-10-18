@@ -2,7 +2,7 @@
 
 Agreed 2026-10-13 between Claude Code and dsh, relayed by the user. Tracked by decision (P18/P19) together with
 the project `CLAUDE.md` that points here, so a clone keeps the pointer and its target together; both harnesses
-load that pointer every session. The 34 memory files themselves stay out of git. Every fact below is tagged:
+load that pointer every session. The memory files themselves stay out of git. Every fact below is tagged:
 
 - **[measured]** — observed by running Claude Code 2.1.289 or dsh in a throwaway repo.
 - **[code]** — read in dsh's source by dsh; not observed.
@@ -135,6 +135,92 @@ Two pieces, both required:
 The base line lives in `MEMORY.md` itself, not in `CLAUDE.md`: it travels with the links it explains, and its
 only writer rewrites it in the same move if the store moves. It costs one of the 200 index lines. **[decided]**
 
+## Setting up layer 2 in a repo — step by step
+
+Written for a harness starting from zero. Placeholders, not paths: `<REPO>` is the repo root, `<STORE>` is
+Claude Code's memory folder for that repo, `<SLUG>` is the folder's name. Claude Code derives `<SLUG>` from the
+repo's absolute path by replacing each `/` with `-` (for example `-Users-<user>-Developer-...-ParallelProse2`), so
+`<STORE>` is `~/.claude/projects/<SLUG>/memory/`. Substitute the real absolute path only in files that live
+outside the repo (the store and the symlink). **Never write a home path into a committed file** — see P19.
+
+1. **Create the store.** Open Claude Code in `<REPO>` once; if `<STORE>` does not exist, create it. Writing a memory
+   there is the only way it gets content; nothing here copies memories from another repo.
+2. **Ignore the symlink.** Add to `<REPO>/.gitignore`:
+   ```
+   # Harness-local instruction overlay (symlink into ~/.claude; machine-specific)
+   AGENTS.local.md
+   ```
+   Check with `git check-ignore -v AGENTS.local.md` (exit 0). Do this before step 4, so the symlink never exists
+   unignored.
+3. **Write `<STORE>/MEMORY.md`.** Line 1 is the base line below, with `<STORE>` replaced by the absolute store path.
+   Then one index line per memory: `- [Title](file.md) — hook`. Index lines are written by Claude Code (P9); dsh
+   never rewrites them. The base line uses one of the 200 index lines Claude Code loads (see "What loads automatically").
+   > *Links in this file are filenames inside `<STORE>` — resolve them there, never against the repo root. Reading
+   > there is permitted: the folder is outside the repo but not outside reach. dsh reads this file through the
+   > repo-root symlink `AGENTS.local.md`, which reports only its own path; see `docs/harness_memory_design.md` (P15).*
+4. **Create the symlink** with an absolute target:
+   ```
+   ln -s "<STORE>/MEMORY.md" "<REPO>/AGENTS.local.md"
+   ```
+   Check with `readlink <REPO>/AGENTS.local.md`: it must print the store path.
+5. **Point to this doc from `CLAUDE.md`.** Add a section `## Harness memory` that names this file. Use `CLAUDE.md`,
+   not `AGENTS.md`: Claude Code skips `AGENTS.md` when a `CLAUDE.md` exists (P25).
+6. **Commit the three repo files together:** `.gitignore`, `CLAUDE.md` and this doc (P18). Never commit the symlink or
+   the store. Committing buys no interoperability (P29); it only decides what a clone carries.
+7. **Probe memory (Claude Code writes it).** Open Claude Code in `<REPO>` and ask it to save one memory into `<STORE>`
+   with a body that contains a unique marker (for example `MARKER-<random>`), and to add its index line. The index
+   title must not contain the marker, so the marker can only come from reading the file. Claude Code writes the
+   index line (P9), never dsh. If the index changed during a Claude Code session, start a new one (P3).
+8. **Cold run (acceptance check).** From `<REPO>`, run a fresh dsh session with the prompt below. Each run is a new
+   session: never pass `--session-id`, and do not continue an earlier run. The prompt is verbatim (in Portuguese, so
+   later runs stay comparable); the status below lists the runs that used it. Replace only `<PROBE_TITLE>` with the probe's title:
+   ```
+   cd <REPO> && dsh --profile headless "<prompt below>"
+   ```
+   ```text
+   Esta é uma leitura fria, sem ajuda. Regras:
+   - Não use ferramentas de busca (grep, find, glob ou similares) em nenhum momento.
+   - Não escreva nem edite nenhum arquivo.
+   - Responda em português.
+
+   1. Sem buscar, liste as instruções que você recebeu no início desta sessão: o nome de cada arquivo carregado, incluindo qualquer um que aponte para memória.
+   2. A partir do que você recebeu, diga onde ficam as memórias de referência do projeto e cite a linha que explica como resolver os links.
+   3. Sem ler nenhum arquivo, liste as entradas do índice de memória exatamente como aparecem.
+   4. Siga o link da entrada cujo título é "<PROBE_TITLE>", resolvendo o nome do arquivo contra a pasta do store segundo a regra que você citou no passo 2. Reporte a linha do corpo que contém o marcador.
+   5. Reporte, em uma linha por informação, a fonte exata de cada coisa que você disse: o arquivo carregado, a entrada do índice, ou a leitura do arquivo de teste.
+   6. Informe se o marcador apareceu antes do passo 4. Se sim, diga de onde veio.
+   ```
+   **Pass:** the entries in step 3 come from the injected instructions, with no search; the marker is reported only
+   after the read in step 4; nothing reported before that read was absent from the instructions and the index.
+   This is the P15 cold run. A run with search, a write, or a marker reported before step 4 fails.
+9. **Clean up.** Remove the probe file and its index line, then check the store holds only real memories. A probe
+   left in the store is a memory the next reader will trust.
+
+**Which profile the result covers.** The step 8 command uses `--profile headless`, and its pass covers that profile
+only. An interactive profile can assemble its instructions differently, so step 8 must be repeated with each one before
+it is claimed for that profile. On this machine the installed profiles are `headless` and `web` (`ls ~/.dsh/profiles`);
+`dsh web` serves the browser UI and must be run from `<REPO>`. `dsh tui` does not exist here. The `web` runs are in the status below.
+
+**Status of this procedure.** Steps 1–5 and 9 are in place in `ParallelProse2`, built on 2026-10-17, committed at 00:01 the next day (`38dbc69`);
+step 6's commit of this section is pending. Step 8 has five recorded runs in `~/.dsh/sessions/`. A run's profile is
+inferred from two signals: whether its session is in the GUI's workspace registry (`~/.dsh/storages/workspace.json`),
+and whether its header carries an `agentPreset` field. No record names who issued a run.
+- `15c39d02` (2026-10-17, 23:29): outside the GUI by both signals, which is the basis for its `headless` label. The
+  marker is reported only after the read, so it passes. Its prompt is not the one above: it asks for "Reporte a linha 9
+  desse arquivo" and calls the probe "entrada de teste".
+- `69b468b4` (2026-10-17, 23:52): in the GUI. Its probe is not in the store, and it reports the marker absent, so it is
+  a negative control. Its prompt is not the one above.
+- `1836d2e7` (2026-10-18, 00:02): in the GUI. The marker is reported only after the read, so it passes as a `web` run.
+  Its prompt is not the one above.
+- `4d483949` (2026-10-18, 00:15): not in the GUI's registry, with `agentPreset`. The text it submitted was already cut
+  after the first rule, with the other two rules and the six questions missing, and a first attempt failed in transport.
+  The retry re-sent that same text, so the run asked which document to read and gave no answer.
+- `97e2abed` (2026-10-18, 00:16): the only run with the prompt above verbatim. The marker is reported only after the
+  read, so it passes. It carries `agentPreset` but is not in the registry, so its profile is not settled.
+
+A `web` pass therefore rests on `1836d2e7`, whose prompt differs from the one above, unless `97e2abed` is shown to be
+a GUI session; then a verbatim `web` pass exists as well.
+
 ## Layer 3: dsh writing memories
 
 **Status 2026-10-13 — decided off (P17).** dsh does not write memories; layer 2 (dsh reads the index) plus layer 1
@@ -196,7 +282,7 @@ settled. New points append.
 | P11 | The linter stays unwritten while the form settles — the reason is "form not stable", not "no trigger" | settled | — |
 | P12 | Linter scope: `Decided on:` present ⇒ `Premises:` and `Revisit if:` required; absent ⇒ nothing required | settled | — |
 | P13 | Premises cite a symbol, commit or item whose change is the signal; never a line number, never a vacuous existence check | settled | — |
-| P14 | Layer 2 piece 1: the `AGENTS.local.md` symlink (repo root → the store's `MEMORY.md`, absolute target, ignored at `.gitignore:29` and **observed to load anyway** in the cold run, third in the chain — ignoring governs search-based discovery only, never a load by exact path, which is the premise the whole `.gitignore` choice rested on **[measured]**; so a `git add -A` cannot commit a machine-local link) | settled — built by dsh 2026-10-13 | — |
+| P14 | Layer 2 piece 1: the `AGENTS.local.md` symlink (repo root → the store's `MEMORY.md`, absolute target, ignored as `AGENTS.local.md` in `.gitignore` and **observed to load anyway** in the cold run, third in the chain — ignoring governs search-based discovery only, never a load by exact path, which is the premise the whole `.gitignore` choice rested on **[measured]**; so a `git add -A` cannot commit a machine-local link) | settled — built by dsh 2026-10-13 | — |
 | P15 | Layer 2 piece 2: the base-path line as `MEMORY.md`'s first line. **Confirmed cold**: a fresh dsh session loaded `~/.dsh/AGENTS.md`, `CLAUDE.md`, `AGENTS.local.md`, derived the store path from the base line alone with search tools forbidden, cited both halves, and read the target file **[measured]**. The line also states that reading there is permitted, after the cold run showed the model nearly talking itself out of a cross-boundary read | settled — both sides | — |
 | P22 | Layer 0 complements Claude Code's prescribed body shape: `**Why:**` is prose rationale, `Premises:` is checkable facts and never restates it; `Decided on:` / `Revisit if:` are the additions. Acked by dsh: the division doubles as the writer's decision procedure — *if the line reads like an argument it belongs in `**Why:**`* — which is what adoption needs given P24, and it names the original failure as a field filled with the wrong kind of content, not a missing field | settled | — |
 | P23 | Layer 0's motivation corrected: the case memory *did* follow the template; `**Why:**` held a persuasive argument, so the premises were never testable | settled — doc fixed | — |
@@ -213,3 +299,5 @@ settled. New points append.
 | P19 | The pointer section is public. Checked before deciding: neither file carries a home path or the username, and the only memory content published is layer 0's citation of the deleted case memory (the OpenAI conclusion, the cost problem, commit `024e4d8`) | settled — public | — |
 | P20 | Write the linter (needs P11 to flip: the form declared stable) | open | either, after P11 |
 | P21 | The write-time check must filter on file path (the memory store only). Content-only matching false-positives on this doc, which quotes the three markers, and on an `Edit` whose partial `new_string` carries `Decided on:` without the rest of the body. **Acked by dsh, with a refinement taken:** check the *post*-state via `PostToolUse` rather than simulating the edit at `PreToolUse`, since simulation re-implements Edit's matching and can diverge silently. Sufficient only while P7 holds (the checker signals, never acts) — **if P7 ever flips to "blocks", `PreToolUse` plus simulation becomes necessary and that risk returns**; the two are coupled | settled | — |
+| P31 | Signed off by dsh, round 5, for steps 1–6 and 9 as written; step 8's passes rest on the session records, `headless` for `15c39d02` and `web` for `1836d2e7`'s variant-prompt run | settled | — |
+| P32 | `CLAUDE.md:26` points at `docs/modo_critique.md`, committed in `e7048b9` so a clone keeps the pointer and its target | settled — committed `e7048b9` | — |
