@@ -494,7 +494,7 @@ class ArtifactRound34(TempCase):
             with self.assertRaises(IngestError) as caught:
                 write(built, out)
         self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
-        self.assertEqual(os.listdir(out), [])
+        self.assertFalse(os.path.exists(out))  # the directory this run created is removed too
 
     def test_write_into_a_directory_with_an_artifact_is_refused_and_keeps_the_old_one(self):
         out = self.make_f7()
@@ -504,6 +504,26 @@ class ArtifactRound34(TempCase):
         self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
         self.assertEqual({name: self.read(out, name) for name in before}, before)
         self.assertEqual(sorted(os.listdir(out)), sorted(before))
+
+    def test_broken_symlink_named_descriptor_counts_as_an_artifact(self):
+        out = self.path("symlinked")
+        os.makedirs(out)
+        link = os.path.join(out, DESCRIPTOR)
+        os.symlink(os.path.join(self.dir.name, "nowhere.json"), link)
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, F7_MANIFEST), out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertTrue(os.path.islink(link))
+
+    def test_partial_directory_with_records_only_is_refused_and_untouched(self):
+        out = self.path("partial")
+        os.makedirs(out)
+        self.write_bytes(out, RECORDS, b'{"partial": true}\n')
+        with self.assertRaises(IngestError) as caught:
+            write(build(F7_EPUB, F7_MANIFEST), out)
+        self.assertEqual(caught.exception.error_line(), f"E-ARTIFACT-WRITE-FAILED file={out}")
+        self.assertEqual(os.listdir(out), [RECORDS])
+        self.assertEqual(self.read(out, RECORDS), b'{"partial": true}\n')
 
     def test_script_and_style_text_is_not_words(self):
         import xml.etree.ElementTree as ET

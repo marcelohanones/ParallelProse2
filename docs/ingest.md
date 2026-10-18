@@ -10,16 +10,16 @@ Source of the rules: `docs/documento_de_migracao.md`, section "Instruções para
 
 ## Status
 
-Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d`, `7d8371c`, `dcc6088` and `5e2a092` (rounds 34 to 37). Landmarks, in order:
+Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b are committed (`9a0467e`); 4c is committed as `c0def6d`, `7d8371c`, `dcc6088`, `5e2a092` and `a9986aa` (rounds 34 to 38). Landmarks, in order:
 
 | # | landmark | state | status |
 |---|---|---|---|
-| 1 | Spec: decisions D-order, D1–D6, M1–M40 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
+| 1 | Spec: decisions D-order, D1–D6, M1–M41 applied to this file | applied; DSH accepted the applied text in R28 (new; rounds 1–4 not recovered) | Done |
 | 2 | Manifests: classification written for both books; edition values typed and reviewed | manifests written at `manifests/augustine.json` and `manifests/debord.json`, per M23; spine checked against each epub; edition values as confirmed by Markim | Done |
 | 3 | Fixture designs: F1–F12, F9b, and the F6b variant | designed; DSH accepted all of them in R28, F7 with one change, now applied | Done |
 | 4a | Ingestion runs on Augustine, first part: dispatch, readers, phases 1–2, F1 stop | built in `src/parallelprose2/ingest/` and tested (33 tests in the 4a suite); no paragraphs, no artifact; committed as `e4f36dd`, manifest ids in M26 as `3871237`; M27 and M28 ids and the round 32 hardening committed as `f7261dc` | Done |
 | 4b | Paragraphs and addresses on Augustine (D6, M14), checked against the 460 count | `src/parallelprose2/ingest/paragraphs.py`: Augustine 460 paragraphs, addresses 1–460, one empty `<p>` dropped and listed; Debord 230 with 9 quoted and sourced; committed as `86c0c0e`; the 5a body stops, F7 and F12 are committed as `9a0467e`; F3, F4 and F10 are committed as bytes; no artifact (4c) | Done |
-| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 86 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39); round 38: a failed replace leaves no temporary; 90 tests; the existing-directory rule is M40 | Doing |
+| 4c | Artifact and identity: JSONL, report, `version_id`, `content_hash`, atomic writes | built in `identity.py`, `inputs.py` and `artifact.py`; round 34 and round 35 points applied (one snapshot of the inputs; each artifact file read once in verify; a non-UTF-8 report is E-ARTIFACT-MALFORMED; the report's version-id checked; F8, F9 and F9b each run twice; M34 rebuild and M35 file set ruled and enforced, including the descriptor's bytes); 86 tests; the published word counts reproduce; M36 (file field) and M37 (unreadable paths) ruled; the source-file read error is `E-SOURCE-UNREADABLE` (M38); the write I/O rule is `E-ARTIFACT-WRITE-FAILED` (M39); round 38: a failed replace leaves no temporary; 92 tests; the existing-directory rule is M40 and M41 (any artifact file in the directory is a refusal; a broken symlink named `descriptor.json` counts as present; a stop removes the directory it created) | Doing |
 | 4d | All fixtures (F1–F12, F6b, F9b) pass twice, and both books run with no stop | not started | Not started |
 | 5 | Ingestion runs on Debord | waits on Augustine first (D-order) | Not started |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | not yet run; the rules are in Determinism and Version id; the checks need the artifact (4c) | Not started |
@@ -553,6 +553,12 @@ reader must see by name, not a traceback. Invalidated by: a write that cannot fa
 Markim in round 38: it stops as `E-ARTIFACT-WRITE-FAILED` (the output path as the file) and writes nothing; the existing
 artifact is untouched. Premise: an artifact is the commit of one run, and replacing a descriptor in place would leave a
 directory whose files disagree with the old identity. Invalidated by: a need to re-publish an artifact under the same path.
+
+**M41 — any artifact file in the directory is a refusal.** Settles: what a write into a directory that holds part of an
+artifact does. Ruled by Markim in round 39: M40 applies to any of `records.jsonl`, `report.txt` or `descriptor.json` present
+in the directory, with or without the descriptor; the write stops as `E-ARTIFACT-WRITE-FAILED` and writes nothing. Premise: a
+partial directory is not a committed artifact, but it is not an empty one either; reusing it would mix one run's records with
+another run's report. Invalidated by: a need to resume a partly written artifact.
 
 ## Open
 

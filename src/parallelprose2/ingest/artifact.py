@@ -121,9 +121,10 @@ def write(built: Built, out_dir: str) -> None:
     is E-ARTIFACT-WRITE-FAILED (M39); the stop removes the temporaries and the renamed files it made."""
     temporaries = {}
     renamed = []
+    created = not os.path.isdir(out_dir)
     try:
         os.makedirs(out_dir, exist_ok=True)
-        if os.path.exists(os.path.join(out_dir, DESCRIPTOR)):  # M40: an artifact is written once; nothing is replaced
+        if any(os.path.lexists(os.path.join(out_dir, name)) for name in (RECORDS, REPORT, DESCRIPTOR)):  # M40, M41
             raise OSError("an artifact already exists in this directory")
         for name, data in ((RECORDS, built.records), (REPORT, built.report), (DESCRIPTOR, built.descriptor)):
             fd, tmp = tempfile.mkstemp(dir=out_dir, prefix=f".{name}.", suffix=".tmp")
@@ -140,7 +141,16 @@ def write(built: Built, out_dir: str) -> None:
             _remove_quietly(tmp)
         for target in renamed:
             _remove_quietly(target)
+        if created:  # a stop leaves nothing this run created, the directory included (M15)
+            _remove_dir_quietly(out_dir)
         raise IngestError("E-ARTIFACT-WRITE-FAILED", out_dir) from None
+
+
+def _remove_dir_quietly(path: str) -> None:
+    try:
+        os.rmdir(path)
+    except OSError:
+        pass
 
 
 def _remove_quietly(path: str) -> None:
