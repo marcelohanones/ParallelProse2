@@ -126,11 +126,11 @@ Sugestões, não decisões. Todas se aplicam a um livro por execução.
 
 5. **Canal de busca denso como base, léxico como consulta separada.** Cada canal de busca devolve seu próprio ranking, e a fusão é uma decisão declarada, não o padrão da biblioteca. "Denso" descreve a família de recuperação por representação vetorial (embeddings): consulta e trechos são transformados em vetores e ranqueados pela proximidade de sentido. A alternativa de outra família é a recuperação esparsa, por contagem de termos, como o BM25. A escolha do modelo de embedding é uma decisão separada.
 
-6. **Parada definida antes da execução.** Cada chamada tem um número máximo de consultas à busca, fixado na configuração da versão. O limite entre as chamadas de um bloco fica com a IA editorial. A busca para quando esse número se esgota ou quando não restam regiões do livro a visitar, o que vier primeiro. O limite de caracteres devolvidos é outra restrição, de outro responsável (a IA editorial), e seu ponto de aplicação é uma decisão do formato de saída. Nenhum juízo decide a parada.
+6. **Parada definida antes da execução.** Each call has a maximum number of search queries, fixed in the retrieval configuration. O limite entre as chamadas de um bloco fica com a IA editorial. A busca para quando esse número se esgota ou quando não restam regiões do livro a visitar, o que vier primeiro. O limite de caracteres devolvidos é outra restrição, de outro responsável (a IA editorial), e seu ponto de aplicação é uma decisão do formato de saída. Nenhum juízo decide a parada.
 
 7. **Rastro estruturado por consulta.** Texto da consulta, canal de busca, posição de cada trecho devolvido, região visitada e motivo da parada. É o que permite distinguir "o livro não trata disso" de "a busca não tentou essa forma".
 
-8. **Cache por (livro, consulta, versão da ingestão, versão do código de recuperação, configuração da busca e modelo de embedding).** Mesma chave, mesmo resultado.
+8. **Cache keyed by (index identity, query, retrieval configuration, retrieval code version).** Index identity is the extraction `version_id` plus the vector and cut-off identities (D10 in `ingest.md`). Same key, same result.
 
 9. **Variações da consulta geradas por modelo (multi-query).** Um LLM propõe algumas variações da consulta, a busca roda com cada uma, e os resultados são unidos. Fica fora do retriever, porque ele não contém modelo de linguagem (pergunta 4). Se for adotada, a variação gerada por modelo é um insumo da IA editorial, e cada variação precisa aparecer no rastro, com a indicação de que foi gerada por modelo.
 
@@ -149,7 +149,7 @@ Nomes e funções não verificados em versões atuais. Mapeamento para as featur
 | 3. decomposição da tese | `spaCy` (análise de dependências e chunks nominais) | divisão em cláusulas por estrutura gramatical, sem modelo generativo |
 | 4. denso e léxico | `chromadb` e `rank-bm25`, já no projeto; a fusão é uma função de poucas linhas | os dois rankings separados, e a fusão declarada no código |
 | 5. rastro | `pydantic` (já no projeto) para o esquema | o esquema importa; a biblioteca só serializa |
-| 6. cache | `joblib` (`Memory`) ou `diskcache` | cache com chave que inclui a versão da ingestão, a versão do código de recuperação, a configuração da busca e o modelo de embedding |
+| 6. cache | `joblib` (`Memory`) ou `diskcache` | cache keyed by index identity, query, retrieval configuration and retrieval code version |
 
 Referência opcional: `pyserini` (com Anserini) tem RM3 e Rocchio como implementações de referência, úteis para comparação. Exige Java.
 

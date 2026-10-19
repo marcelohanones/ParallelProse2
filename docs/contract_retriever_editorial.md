@@ -31,14 +31,14 @@ unable to write a query without the retriever's help. The exact specification of
 **D1 loop — proposed.** The retriever runs its fixed attempts first, with the question of the block. Then the editorial
 AI judges whether the material is enough. If it is not, it sends a new request, and the retriever runs it with its own
 rules. The loop stops in one of two ways: the editorial AI judges the material sufficient, or a hard limit is reached.
-The editorial AI keeps its own round limit, read from the version's configuration.
+The editorial AI keeps its own round limit, read from the retrieval configuration.
 The query cap (D3) is enforced by the retriever within each call; across calls, the editorial AI holds the limit.
 
 **D2 — output unit.** Accepted as a proposal: the paragraph, delivered by default, with a neighbouring paragraph available
 by its address when the editorial AI needs context. The details are in `docs/retriever_requirements.md`.
 
 **D3 — query cap.** Accepted: the retriever enforces a cap on the queries it runs within a call, whatever their origin.
-The value is a parameter of the version's configuration, and the unit is the query. The cap across the calls of a block
+The value is a parameter of the retrieval configuration, and the unit is the query. The cap across the calls of a block
 is held by the editorial AI, read from the same configuration. Settles: who counts the queries of a block, and what the
 retriever enforces. Premise: the retriever keeps no state between calls (premise 4 of the architecture), so it cannot
 count across calls. There is no hard limit independent of the editorial AI for the block as a whole.
@@ -54,7 +54,7 @@ What the editorial AI judges a block with, as a starting point:
 
 - The block's thesis and question. They come from the editor, not from the retriever, and they are the criterion the
   judgment is made against.
-- The units the retriever returned for the book, each with its address, and the ingestion version they come from.
+- The units the retriever returned for the book, each with its address, and the extraction version (`version_id`) they come from.
 - The trace of the calls made for the block, including which parts of the thesis received no material (open: how
   this is recorded).
 - Optionally, the context around a unit, if the contract allows it (open).

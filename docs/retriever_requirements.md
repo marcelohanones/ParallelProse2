@@ -26,7 +26,7 @@ consumes from that return is defined in the contract ledger, not here.
 A call returns, as a starting point:
 
 - Paragraphs with the addresses assigned by ingestion (D2, accepted as a proposal).
-- The ingestion version the passages come from.
+- The extraction version (`version_id`) the passages come from, and the index identity they were searched in.
 - A trace of the call (see below).
 
 ## Coverage
@@ -43,12 +43,12 @@ A call stops for one of a closed set of reasons. The reason is always recorded; 
   call, whatever its origin.
 - **Coverage exhausted:** every paragraph of the book has appeared among the candidates of some attempt. A candidate is a
   paragraph returned within the configured depth and above the cut-off. Being scored by a query does not count as examined.
-- **No candidates:** no unit reached the minimum cosine similarity. The cut-off is a parameter recorded with the version;
-  its provisional value is 0.30, until the calibration of ingestion (decision D9) has run for the book's version and model.
+- **No candidates:** no unit reached the minimum cosine similarity. The cut-off is a parameter of the retrieval configuration;
+  its provisional value is 0.30, until the calibration of ingestion (decision D9) has run for the book's extraction version and model.
 - **Error:** a technical failure, with its own code.
 
 Each record carries the reason, the counters (queries made, and paragraphs examined out of the total), and the parameters
-that set the limit: the version configuration, and the cap for the call (D3).
+that set the limit: the retrieval configuration, and the cap for the call (D3).
 A stop that depends on whether the material answers the thesis is not a reason: that judgment belongs to the editorial
 AI.
 
@@ -89,14 +89,15 @@ difficulty.
 
 ## Determinism
 
-The same request against the same ingestion version returns the same passages, in the same order, with the same trace.
+The same request against the same index identity returns the same passages, in the same order, with the same trace.
 Adaptation inside a call is part of this: it is a fixed rule over the call's own inputs.
 
 ## Requests
 
 The only way a call differs from an earlier one is through the request. The retriever uses nothing it did not receive
-in that request. The request names the ingestion version that identifies the index it searches, and the index searched is
-the one that version identifies.
+in that request. The request names the index it searches, identified by its extraction version and by the identities of its vectors and cut-off, and the index searched is
+the one those identities identify. The retrieval configuration (depth, cut-off, attempt order, query cap and embedding
+model) is recorded with the index identity.
 
 ## Accepted decisions for the dense channel
 
@@ -105,22 +106,22 @@ These decisions were accepted in discussion. Each one is recorded with the reaso
 - **Embedding model.** Starting point: `text-embedding-3-small` (OpenAI), which is multilingual and the cheapest in its
   family. Alternative to test: `text-embedding-3-large`, only if a test on the book in use shows a gain that justifies
   the cost. The model's name, dimensions and price are to be confirmed in the current documentation before fixing.
-  The model name, and its version where the API offers one, are part of the version identity.
+  The model name, and its version where the API offers one, are part of the vectors' identity, not of `version_id`.
 - **Indexed unit.** The paragraph, one address per paragraph. No splitting of long paragraphs in this version, because a
   split would create child addresses that the ingestion does not define. Very short paragraphs are reported by
   ingestion; they are not dropped from the index.
 - **Index type.** Exact search. A book has a few hundred paragraphs, so the cost is negligible, and the order of results
   is deterministic by construction. Paragraphs with equal similarity are ordered by their address, so the order holds
   even on ties.
-- **Depth.** A parameter of the retriever's configuration, fixed per version and recorded in the version identity and in the trace. The cut by the character budget happens after
+- **Depth.** A parameter of the retriever's configuration, fixed per retrieval configuration and recorded in that configuration's identity and in the trace. The cut by the character budget happens after
   ranking, at delivery, not inside the search.
 - **Metric.** Cosine similarity. OpenAI embeddings are returned normalized, so the dot product gives the same ranking,
   and the query needs no prefix.
 - **Vectors as an artifact.** The paragraph vectors are an artifact of ingestion, with their own descriptor, and they
-  enter the version identity together with the model name and version. The query is embedded in each call with the same
-  model. A result may be cached by the key of model, query and ingestion version.
+  have their own identity, which records the model name and version and refers to `version_id`. The query is embedded in each call with the same
+  model. A result may be cached by the key of index identity, query, retrieval configuration and retrieval code version.
 - **Addresses.** The address is the paragraph's position from ingestion, and it is always cited together with the
-  ingestion version. A content hash of the normalized text is stored as a check: an address that does not match its
+  extraction version. A content hash of the normalized text is stored as a check: an address that does not match its
   version and hash is refused.
 - **Coverage region.** The paragraph. Chapters are a derived view in the report, not the unit of coverage.
 - **Cut-off.** A cosine similarity parameter, calibrated by ingestion from the book's own paragraphs (decision D9 in
@@ -132,11 +133,11 @@ These decisions were accepted in discussion. Each one is recorded with the reaso
   part of the search, not a language model. The multi-query variant, which would put a language model inside the
   retriever, is therefore out of this component.
 - **Query cap (D3).** The retriever enforces a cap on the queries it runs within a call, whatever their origin. The value
-  is a parameter of the version's configuration. The cap across the calls of a block is held by the editorial AI, because
+  is a parameter of the retrieval configuration. The cap across the calls of a block is held by the editorial AI, because
   the retriever keeps no state between calls.
 - **Attempt order (first version), held as data.** The order is a list in configuration, read once at the start of a
-  call, and the whole list is recorded in the version identity. Changing the order is therefore a configuration change
-  that produces a new version; it is never a silent edit to the code. The first version's list, the same for every block:
+  call, and the whole list is recorded in the retrieval configuration identity. Changing the order is therefore a
+  configuration change that produces a new retrieval configuration identity; it is never a silent edit to the code. The first version's list, the same for every block:
   (1) the question as written, at the declared depth; (2) the question with only its content terms; (3) the question
   without its interrogative framing; (4) variants built from the book's vocabulary. The vocabulary artifact is mandatory,
   and ingestion specifies it; the slot is reserved now, and the list is complete only once that specification exists.

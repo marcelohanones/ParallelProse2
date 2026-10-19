@@ -1,7 +1,9 @@
 # Ingestion fixtures (design)
 
-Status: design only. No fixture file, test code or ingestion code exists. Each fixture is described by its input,
-its expected outcome, and the defect it would catch. The rules are in [docs/ingest.md](ingest.md).
+Status: the fixtures are built and tested. The committed fixtures are under `tests/fixtures/ingest/`: F1, F2, F3, F4,
+F5 B and C, F6, F6b, F7, F10, F11 and F12 are committed as bytes, and F5 A is the F3 file renamed. F8, F9 and F9b are not
+committed: the tests derive them from the F7 artifact at test time. The tests are under `tests/`. Each fixture below is
+described by its input, its expected outcome, and the defect it catches. The rules are in [docs/ingest.md](ingest.md).
 
 ## Common conventions
 

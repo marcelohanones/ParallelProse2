@@ -10,7 +10,7 @@ Two graphs, one boundary.
 - **Editorial graph** (owned by the editorial AI, in this repo). It receives the passages and the thesis, judges
   whether the material is enough, and then either writes and checks the prose, or requests a new round with a query in
   text and closed fields.
-- **Retriever function** (one book per call). It works on the index of one book, identified by its ingestion version,
+- **Retriever function** (one book per call). It works on the index of one book, identified by its extraction version (`version_id`) and by the identities of its vectors and cut-off,
   and on the request it receives from the editorial AI. It does not receive the epub: ingestion has already turned the
   book into addressed paragraphs and an index. Inside the call it decides how to search and when to stop, and it
   returns text units with their addresses, plus a trace of what it did. The boundary is defined in the contract ledger;
@@ -62,7 +62,8 @@ the boundary rather than inside another part.
 - Only the block's question, or variants the retriever derives from it by its rules, or the query the editorial AI sends
   in a new round, is searched as text. The rest of the request is not a query.
 - The boundary carries a request in and a result out. Their contents are defined in `docs/contract_retriever_editorial.md`.
-- The ingestion version identifies the text the passages come from (see `docs/ingest.md`).
+- The extraction version (`version_id`) identifies the text the passages come from. The index is identified by that
+  version together with its vector and cut-off identities (see `docs/ingest.md`, D10).
 
 ## Open
 

@@ -156,9 +156,13 @@ contract.
 
 `version_id` is a single hash over a canonical serialization of:
 - the sha256 of the epub file bytes;
-- the sha256 of the ingestion source files — every source file under `src/parallelprose2/`, excluding `__pycache__` and
+- the sha256 of the ingestion source files — every source file under `src/parallelprose2/ingest/`, excluding `__pycache__` and
   `.pyc` (generated, not code), sorted by path (the code, not a hand-bumped version string);
 - the sha256 of the book's manifest (edition fields and classification).
+
+This identity covers extraction only. The vectors (D7) and the calibrated cut-off (D9) have their own identities, which
+refer to this `version_id` and are not part of it. Retrieval code outside `src/parallelprose2/ingest/` is not part of it
+(D10).
 
 The canonical serialization is JSON with sorted keys and no insignificant whitespace, encoded as UTF-8 with non-ASCII
 characters kept (`ensure_ascii=False`); the choice changes the bytes, so it is part of the identity (M33).
@@ -241,7 +245,7 @@ Every fixture in `docs/ingest_fixtures.md` is a required test, and each one runs
 above is exercised with it (M17).
 
 Two rules are tested at package level rather than by a fixture, because no epub can exercise them (M22): the
-`version_id` moves when a source file under `src/parallelprose2/` changes (M13), and a run killed between the renames,
+`version_id` moves when a source file under `src/parallelprose2/ingest/` changes (M13, as amended by D10), and a run killed between the renames,
 before the descriptor, leaves a directory that does not verify (M15, M21). A deferred one is recorded as unverified, never as covered.
 
 ## Proibições
@@ -524,7 +528,7 @@ read as a file stops as. Ruled by Markim in round 36: the same id as a missing o
 manifest, and `E-ARTIFACT-INCOMPLETE` for an artifact file (a directory, a permission error, a missing file). The file is the
 path, or the artifact-relative name under M36. Premise: a run cannot tell an unreadable file from a missing one without a
 second rule, and one id keeps the set of stops small. Gap left open: the source files that `version_id` reads (under
-`src/parallelprose2/`) raise an untyped `OSError` when unreadable; no id has been ruled for them.
+`src/parallelprose2/ingest/`) raise an untyped `OSError` when unreadable; no id has been ruled for them.
 
 **M38 — an unreadable source file is its own stop.** Settles: the id for a source file, or a directory of the source set, that
 cannot be read. Ruled by Markim in round 37 on DSH's review: `E-SOURCE-UNREADABLE`, with the source path as the file. It is
@@ -563,8 +567,8 @@ not integers, which would need a rule for them.
 
 **D7 — paragraph vectors are an artifact of ingestion.** Settles: where the vectors of the dense channel live. Premise:
 the retriever must be deterministic and its results must be reproducible from declared inputs, so the vectors are built
-once, here, and stored with their own descriptor, like the paragraphs. Their identity includes the embedding model's name
-and version, so a change of model is a change of `version_id`. The query is embedded at call time with the same model and
+once, here, and stored with their own descriptor, like the paragraphs. Their identity is separate from `version_id`, and records the embedding model's name
+and version. A change of model changes the vector identity, not `version_id` (D10). The query is embedded at call time with the same model and
 is not part of this artifact. Invalidated by: a model that cannot be pinned to a name and version, or a retriever that
 must embed paragraphs on each call.
 
@@ -579,15 +583,26 @@ cosine cut-off used for "no candidates" comes from. Premise: a fixed number chos
 the model, and a cut-off derived from questions would need a reference set, which the project does not want to build.
 The calibration samples random pairs of paragraphs from the book, computes their cosine similarities, and takes a high
 percentile (for example the 99th) as the cut-off: a paragraph is a candidate only if it scores above what unrelated
-paragraphs typically reach. It runs once per ingestion version and model, is stored as an artifact with its own
-descriptor, and enters the version identity. The value 0.30 is only the starting value until the calibration has run.
+paragraphs typically reach. It runs once per extraction version and model, is stored as an artifact with its own
+descriptor and identity, which refers to the `version_id` and the model, and does not change `version_id` (D10). The value 0.30 is only the starting value until the calibration has run.
 Invalidated by: a case where random pairs are not representative of the book, or a need for the cut-off to depend on the
 question.
+
+**D10 — `version_id` covers extraction only; vectors and cut-off have their own identities.** Settles: what `version_id`
+identifies, and the scope of its source set. Amends M13: the source set is every source file under
+`src/parallelprose2/ingest/`, excluding `__pycache__` and `.pyc`. Retrieval code outside that directory is not part of
+`version_id`. The vectors (D7) and the calibrated cut-off (D9) each have their own descriptor and identity, which refers
+to the `version_id` they were computed from and records the embedding model's name and version where it applies. The
+index identity is the tuple of `version_id`, vector identity and cut-off identity. Premise: extraction must stay stable
+under changes to the retriever, to the embedding model and to the calibration method, since none of them changes the
+text; a single identity for all of it would make every retrieval change look like a change of text. Invalidated by: a
+requirement that one identity cover the whole index, or a retrieval change that alters how paragraphs are extracted,
+which would then be an extraction change.
 
 ## Open
 
 - **Vocabulary artifact** — mandatory for the retriever's first milestone. Its method, its content, its descriptor and
-  its place in the version identity are not yet specified; they are to be written here once the research in
+  its own identity, separate from `version_id`, are not yet specified; they are to be written here once the research in
   `docs/retriever_requirements.md` has produced results.
 - **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
 - **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied). Built as committed bytes with tests: F1, F2, F3, F4, F7, F10 and F12. F8, F9 and F9b are artifact tests derived from the F7 artifact at test time, not committed bytes (M17 runs each twice; round 34). Before 4d: F6, F6b, F11 and the F5 set. The package-level tests of M22 are in `tests/test_artifact.py`.
