@@ -30,10 +30,10 @@ trabalho; no novo repositório, uma dessas partes é a IA editorial.
 - **O resultado é escrito no formato do projeto:** o que foi feito, por que, o critério cumprido célula por célula,
   o custo conciliado e o que o item não resolve.
 
-**Canais.** A comunicação mais imediata entre as partes ocorre de duas formas: (1) o usuário copia as mensagens de
-um chat para o outro; (2) cada parte escreve seus documentos em `docs/`, e no registro de rodadas em
-`docs/reviews/` cada lado escreve só o próprio arquivo, conforme o `README.md` dessa pasta. Não há canal direto
-entre os harnesses. A memória compartilhada (camada 2 do `docs/harness_memory_design.md`) não é canal de mensagens:
+**Canais.** A comunicação entre as partes ocorre pelo registro: cada parte escreve seus documentos em `docs/`,
+e no registro de rodadas em `docs/reviews/` cada lado escreve só o próprio arquivo, conforme o `README.md` dessa
+pasta. O que faz um lado começar a responder é a **liberação** do arquivo, descrita em `docs/auto_critique2.md`.
+Não há canal direto entre os harnesses. A memória compartilhada (camada 2 do `docs/harness_memory_design.md`) não é canal de mensagens:
 ela guarda fatos e decisões duráveis, e o alcance dela no outro harness não é garantido em tempo real.
 
 **Por que existe.** O valor do modo está em que uma afirmação precisa sobreviver a alguém refazendo a conta a partir
