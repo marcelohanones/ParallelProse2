@@ -5,17 +5,23 @@ Signals only: this script never edits, rewrites or deletes anything. Exit 0 when
 there is no failure, 2 when at least one file fails, following P7 of
 docs/harness_memory_design.md (a check signals; the person decides).
 
-Four items, from the contract's verification section:
+The six items below are the contract's verification section, in its order:
 
   1. the gate block exists, parses, and nothing after it is a section other than
      the counts footer, and nothing at all follows the footer   -> "gate-last"
   2. to-markim and blocks-advance are coherent                   -> "gate-coherence"
   3. sent in the header matches LC_ALL=C wc -w                   -> "sent"
   4. at most one counts footer                                   -> "single-footer"
+  5. the checador key cites the file this message answers, and its number is
+     that file's own findings                                   -> "checador"
+  6. the file cited in that key is named in the opening line     -> "opening"
 
-Rules apply from round 39 on (the contract's vigencia). Earlier rounds are
-reported as history, and the contract's critique-exceptions block names files
-whose known deviations must not be reported as failures.
+The form rules apply from the round the contract's Vigencia names, and the
+checador key from the later round it names. Those two numbers live only in the
+constants below, and a test reads them back from the contract: never restate
+them in prose, which is how they went stale once. The contract's
+critique-exceptions block names files whose known deviations must not be
+reported as failures.
 """
 from __future__ import annotations
 
@@ -38,12 +44,27 @@ BT = chr(96)
 RULES = ("gate-last", "gate-coherence", "sent", "single-footer", "checador", "opening")
 RULE_HINT_RE = re.compile(r"regra `([\w-]+)`")
 
-FILE_RE = re.compile(r"^R(\d+)-(cc|dsh)(?:-[a-z0-9]+)?\.md$")
+ROUND_RE = re.compile(r"^R(\d+)-(cc|dsh)((?:-[a-z0-9]+)*)\.md$")
+FILE_RE = ROUND_RE
+OPENING_RE = re.compile(r"^Segue as? mensage(?:ns|m)\b")
 SENT_RE = re.compile(r"<!--\s*sent:\s*(\d+)\s*palavra")
 FENCE_RE = re.compile("^(" + BT + "{3,})([^" + BT + "]*)$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 COUNTS_RE = re.compile(r"^##\s+Contagens\s*$")
 CHECKER_RE = re.compile(r"checador:\s*(\S+\.md)\s*[—-]\s*(\d+)\s*achado")
+
+
+def parse_round_name(name: str) -> tuple[int, str, str | None] | None:
+    """(round, side, suffix) for a round file name, or None.
+
+    The suffix is the addendum subject, or None for a turn file. The watcher and
+    the checker both read names through here, so neither can drop a file the
+    other sees.
+    """
+    match = ROUND_RE.match(name)
+    if not match:
+        return None
+    return int(match.group(1)), match.group(2), (match.group(3)[1:] or None)
 
 
 def word_count(path: Path) -> int:
@@ -135,6 +156,45 @@ def parse_keys(body: list[str]) -> dict[str, str]:
     return keys
 
 
+def gate_keys(path: Path) -> dict[str, str]:
+    """The gate block's keys, or {} when there is no critique-gate fence."""
+    lines = path.read_text(encoding="utf-8").splitlines()
+    _, fences = fenced_lines(lines)
+    for start, end, info in fences:
+        if info == "critique-gate":
+            return parse_keys(lines[start + 1 : end])
+    return {}
+
+
+def header_keys(path: Path) -> dict[str, str]:
+    """The header keys: the contract puts them in the first block of the file.
+
+    Only lowercase keys count, so the sent comment and prose lines with a colon
+    stay out. The block ends at the first blank line.
+    """
+    keys: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            break
+        key, sep, value = line.partition(":")
+        key = key.strip()
+        if sep and re.fullmatch(r"[a-z][a-z-]*", key):
+            keys[key] = value.strip()
+    return keys
+
+
+def opening_line(lines: list[str]) -> str | None:
+    """The first body line: not the sent comment, not a key, not blank."""
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("<!--"):
+            continue
+        if re.fullmatch(r"[a-z][a-z-]*:.*", stripped):
+            continue
+        return stripped
+    return None
+
+
 def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
     lines = path.read_text(encoding="utf-8").splitlines()
     inside, fences = fenced_lines(lines)
@@ -184,6 +244,8 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
         elif blocks == "no" and to_markim and to_markim.lower() != "none":
             if not keys.get("why-not-blocking"):
                 findings.append(("gate-coherence", "blocks-advance: no sem why-not-blocking"))
+        elif blocks == "yes" and to_markim.lower() == "none":
+            findings.append(("gate-coherence", "blocks-advance: yes sem rótulo em to-markim"))
 
     # rule 3: the header count matches the canonical command. Runs even when the
     # gate is missing, because a truncated file is exactly when the count matters.
@@ -196,7 +258,7 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
         if int(declared.group(1)) != actual:
             findings.append(("sent", "declarado %s, canonico %d" % (declared.group(1), actual)))
 
-    # rule 5: the checador key, mandatory from round 46. It cites the file this
+    # rule 5: the checador key, mandatory from FIRST_CHECKER_KEY_ROUND. It cites the file this
     # message answers, and the number the checker reports for that file. The
     # inventory is never the value: it includes the file being written, so it is
     # false by construction. _depth stops a citation loop between two files.
@@ -230,7 +292,8 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
                 if actual != declared:
                     findings.append(("checador", "%s: declarado %d, real %d" % (target, declared, actual)))
 
-        opening = next((l for l in lines if re.match(r"^Segue as? mensage(?:ns|m)\b", l.strip())), None)
+        first_body = opening_line(lines)
+        opening = first_body if first_body and OPENING_RE.match(first_body) else None
         if opening is None:
             findings.append(("opening", "linha de abertura ausente"))
         elif cited:

@@ -19,5 +19,13 @@ AGENTS.local.md
 # Local data, not versioned
 data/
 
+# Round files are transport, not record: the folder's rulebook is versioned, its content is not
+docs/reviews/*
+!docs/reviews/README.md
+
+# Watcher runtime state: a cache of the registry scan and the chain counter, not record
+tools/.watcher-state.json*
+tools/.watcher-hops/
+
 # Claude Code machine-local settings (hook config carries absolute store paths)
 .claude/settings.local.json

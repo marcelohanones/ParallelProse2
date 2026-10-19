@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import check_auto_critique as chk  # noqa: E402
 
 FENCE = chk.BT * 3
-TARGET = "R40-dsh.md"  # round below the checador key vigencia, so it needs no key
+TARGET = "R1-dsh.md"  # round below the checador key vigencia, so it needs no key
 
 
 def build(path, *, gate=True, to_markim="none", blocks="no", why=None,
@@ -158,12 +158,58 @@ class CheckerTests(unittest.TestCase):
         build(p, checador=TARGET + " \u2014 0 achado(s)", opening=None)
         self.assertIn("opening", self.rules(p))
 
+    def test_target_is_clean_at_depth_zero(self):
+        # O alvo citado so era analisado em profundidade 1, onde a chave e a
+        # abertura sao puladas. Este teste prende o alvo ao nome que o
+        # comentario de TARGET diz: abaixo da vigencia da chave, limpo.
+        self.assertEqual(chk.analyze(self.target()), [])
+
     def test_checador_key_absent_in_the_first_round(self):
         # A primeira mensagem de uma serie nao responde arquivo nenhum,
         # e por isso nao tem o que citar na chave.
         p = self.dir / "R1-cc.md"
         build(p)
         self.assertNotIn("checador", self.rules(p))
+
+    def test_yes_without_label_is_incoherent(self):
+        self.target()
+        p = self.subject(to_markim="none", blocks="yes")
+        self.assertIn("gate-coherence", self.rules(p))
+
+    def test_yes_with_label_is_coherent(self):
+        self.target()
+        p = self.subject(to_markim="M1", blocks="yes", why=None)
+        self.assertNotIn("gate-coherence", self.rules(p))
+
+    def test_hyphenated_addendum_is_a_round_file(self):
+        self.assertIsNotNone(chk.FILE_RE.match("R1-dsh-log-de-execucao.md"),
+                             "adendo com hifen precisa casar FILE_RE")
+        p = self.dir / "R90-dsh-log-de-execucao.md"
+        build(p)  # round 90, sem chave
+        self.assertIn("checador", self.rules(p))
+
+    def test_opening_must_come_before_the_title(self):
+        self.target()
+        p = self.subject(opening=None,
+                         before_gate=["Segue a mensagem `" + TARGET + "`."])
+        self.assertIn("opening", self.rules(p))
+
+    def test_header_keys_read_the_first_block(self):
+        p = self.dir / "R1-cc.md"
+        p.write_text(
+            "<!-- sent: 1 palavras (x) -->" + chr(10) +
+            "gap: R1" + chr(10) +
+            "checador: R1-cc.md \u2014 0 achado(s)" + chr(10) +
+            chr(10) + "texto depois" + chr(10),
+            encoding="utf-8")
+        self.assertEqual(chk.header_keys(p), {"gap": "R1", "checador": "R1-cc.md \u2014 0 achado(s)"})
+
+    def test_gate_keys_read_the_block(self):
+        self.target()
+        p = self.subject(to_markim="M1", blocks="no", why="respondidas")
+        keys = chk.gate_keys(p)
+        self.assertEqual(keys.get("to-markim"), "M1")
+        self.assertEqual(keys.get("blocks-advance"), "no")
 
     def test_exceptions_block_is_read(self):
         contract = self.dir / "contract.md"
