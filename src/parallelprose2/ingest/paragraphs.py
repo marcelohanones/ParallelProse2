@@ -1,9 +1,9 @@
-"""Paragraph extraction for body files (D6, M14). Reads the epub; writes nothing.
+"""Paragraph extraction for body files (D6, M14, M29). Reads the epub; writes nothing.
 
-A paragraph is a leaf text run. A block (p, div, blockquote, li) yields one paragraph per direct text run, and each
-child block is processed the same way, in document order (M14). Inline elements do not split a run. Headings are not
-text of the body. An empty <p> is dropped and listed; an empty wrapper is dropped silently. Containers that are
-neither block nor inline (ul, ol, body) pass their children through.
+A paragraph is a leaf text run. Every element that is neither inline nor a heading is a block boundary (M29(2)): it
+yields one paragraph per direct text run, and each child is processed the same way, in document order (M14). Inline
+elements do not split a run. Headings are not text of the body. An empty <p> is dropped and listed; an empty wrapper is
+dropped silently. Containers such as ul, ol and body pass their children through.
 """
 
 import re
@@ -16,7 +16,6 @@ from parallelprose2.ingest.inputs import Inputs
 from parallelprose2.ingest.errors import IngestError
 from parallelprose2.ingest.manifest import load_manifest
 
-BLOCK_TAGS = {"p", "div", "blockquote", "li"}  # D6
 HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
 INLINE_TAGS = {"span", "em", "i", "b", "strong", "a", "small", "sup", "sub", "u", "font", "abbr", "cite", "code", "q", "img"}
 
