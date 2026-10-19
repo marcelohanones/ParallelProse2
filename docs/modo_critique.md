@@ -8,8 +8,13 @@ trabalho; no novo repositório, uma dessas partes é a IA editorial.
 **Regras de funcionamento**
 
 - **Cada mensagem é uma lista numerada.** Cada ponto tem um número, para que possa ser respondido, mantido ou
-  retirado por referência. Cada rodada termina com três listas: o que foi aceito por todas as partes, o que ficou
-  em aberto e o que cabe ao Markim.
+  retirado por referência. Cada rodada termina com duas listas: o que foi aceito por todas as partes e o que ficou
+  em aberto. Uma terceira, o que cabe ao Markim, só existe quando há algo para ele — e a ausência dela é a resposta
+  correta quando não há.
+- **Nem toda escolha é uma decisão.** Pergunta ao Markim só se faz quando a escolha não tem default claro e não é
+  reversível pela observação. Escolha com default claro é recomendação, não pergunta; escolha que a observação
+  corrige é default, com o gatilho de revisão escrito junto. Perguntar antes da evidência transforma a decisão em
+  limite: ela entra no registro antes do fato, e depois é ela que o desenho tem de contornar.
 - **Decisões do Markim têm rótulo próprio** (uma letra e um número, por exemplo `D1`), e são repetidas por inteiro
   no topo de cada mensagem seguinte. Ele precisa ser citado de forma explícita; não deve ter de adivinhar que uma
   pergunta é dele.
