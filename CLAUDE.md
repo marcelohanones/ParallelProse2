@@ -37,3 +37,7 @@ Dois livros lado a lado. A execução é de um livro por vez; a comparação aco
 ## Harness memory
 
 `docs/harness_memory_design.md` registra o desenho acordado para compartilhar memória entre Claude Code e dsh — um escritor por arquivo, três camadas, limites medidos. Leia antes de mudar como qualquer um dos dois harnesses guarda ou carrega memória.
+
+## Contrato entre harnesses (CRITIQUE)
+
+A troca de mensagens entre Claude Code e dsh no modo CRITIQUE é regida por `docs/auto_critique2.md`. Leia antes de abrir ou responder uma rodada em `docs/reviews/`.
