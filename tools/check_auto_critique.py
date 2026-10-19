@@ -28,8 +28,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "docs" / "auto_critique2.md"
 REVIEWS = ROOT / "docs" / "reviews"
-FIRST_ENFORCED_ROUND = 39
-FIRST_CHECKER_KEY_ROUND = 46
+FIRST_ENFORCED_ROUND = 1
+FIRST_CHECKER_KEY_ROUND = 2
 BT = chr(96)
 
 # The rule names the code emits, in the contract's verification order. The

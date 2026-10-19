@@ -1,6 +1,6 @@
 # Contrato da troca automatizada — ParallelProse2
 
-**Versão 1 — 2026-10-19.** Escrito por DSH. Este documento governa a troca de mensagens entre Claude Code e dsh, e nada além dela. Ele é autônomo: não cita, não depende e não substitui nenhum outro contrato.
+**Versão 1 — 2026-10-19.** Escrito por DSH. Este documento governa a troca de mensagens entre Claude Code e dsh, e nada além dela. Ele é autônomo: não cita e não depende de outro documento. **É o único contrato que governa a troca desde 2026-10-19; nada anterior a esta data governa o disparo nem o formato.**
 
 ## O cenário
 
@@ -43,7 +43,7 @@ O cenário tem três partes:
 ### Regra 3 — com pergunta em aberto, a gravação acontece no `passa`
 
 **Serve a:** C.
-**Premissa:** o `passa` é lido pelo harness como cue, e o harness anuncia o cue detectado antes de agir.
+**Premissa:** o `passa` é lido pelo harness como cue, e o harness anuncia o cue detectado antes de agir; o arquivo gravado depois dele carrega `blocks-advance: no`, como a seção do gate exige.
 **Invalidaria:** a leitura de cue se mostrar não confiável, e a mensagem ser gravada sem a resposta.
 
 ### Regra 4 — o watcher dispara o outro lado, e recusa o salto, nunca a rodada
@@ -109,6 +109,7 @@ Esta cláusula é escopada por tempo, e expira sozinha quando o watcher existir.
 
 - Um arquivo por lado por rodada, mesmo número: `R{n}-cc.md` e `R{n}-dsh.md`, na pasta da trilha.
 - Criado pelo autor, nunca editado. Correção é mensagem nova, ou adendo `{rodada}-{lado}-{assunto}.md`.
+- **O registro é transporte, não arquivo.** A rodada existe enquanto a troca está aberta. O que precisa durar vai para este contrato, ou para o ledger da etapa — nunca fica só na rodada. Rodada é descartável; decisão não é.
 - O corpo é a mensagem inteira, não o resumo.
 - Estado derivado da existência: o par completo fecha a rodada; o lado que falta é quem responde. Um gap declarado fecha a vez sem arquivo.
 - Um lado escreve no máximo uma vez por número; quando escreve de novo, o número sobe. Adendo com sufixo não conta.
@@ -127,7 +128,7 @@ O cabeçalho conta inteiro, marcadores incluídos. O comando de contagem é obri
 LC_ALL=C wc -w <arquivo>
 ```
 
-Sem o locale fixado o número muda com o ambiente. A diferença tem causa conhecida: no `R34-cc.md`, a palavra `às` é um token no locale C e dois num locale UTF-8, e há duas ocorrências no arquivo.
+Sem o locale fixado o número muda com o ambiente. A diferença tem causa conhecida: a palavra `às` é um token no locale C e dois num locale UTF-8.
 
 Depois da linha de contagem vêm as chaves, até a primeira linha que não seja chave:
 
@@ -149,6 +150,7 @@ why-not-blocking: <uma linha, quando "no" e houver rótulo>
 ```
 
 - `yes` proíbe o `passa` enquanto houver entrada em `to-markim` sem resposta gravada.
+- **Depois do `passa`, a mensagem gravada entra com `blocks-advance: no`**, e o `why-not-blocking` diz que as perguntas foram respondidas. O formato não tem campo de "respondido": quem registra a resposta é o próprio ato de gravar, mudando o `yes` para `no`. Sem isso, o `passa` liberaria um arquivo que o gate segura, e o watcher pararia justamente a mensagem que devia sair.
 - `to-markim: none` não precisa de `why-not-blocking`.
 - O gate é o último bloco de conteúdo. Depois dele só pode vir o rodapé `## Contagens`, e nada depois do rodapé.
 - Quem lê o gate é script, não modelo.
@@ -177,15 +179,14 @@ Ele sinaliza e nunca edita. O leitor o roda na abertura; o watcher o roda antes 
 5. a chave `checador:` existe, cita um arquivo existente e não ambíguo, e o número declarado confere com a análise desse arquivo — regra `checador`;
 6. o arquivo citado na chave está entre os nomeados na linha de abertura — regra `opening`.
 
-**Vigência**: as regras de forma valem da **rodada R39** em diante. As anteriores ficam como estão e o checador as reporta como histórico, não como falha.
+**Vigência**: as regras de forma valem da **rodada R1** em diante, porque o registro começa vazio e não há histórico a preservar. Toda rodada escrita aqui é conferida.
 
-**Obrigatória da rodada R46 em diante**: a chave do checador.
+**Obrigatória da rodada R2 em diante**: a chave do checador. A primeira mensagem de uma série não responde arquivo nenhum, e por isso não tem o que citar.
 
-As divergências conhecidas ficam no bloco abaixo, e o checador as lê dele:
+O bloco abaixo é onde divergências conhecidas ficam, uma por linha, com a razão. **Está vazio, e vazio é o estado correto** enquanto nenhuma existir:
 
 ```text
 critique-exceptions
-R46-cc.md | opening | cita R45-cc.md; a mensagem responde R46-dsh.md
 critique-exceptions-end
 ```
 
@@ -197,6 +198,13 @@ leia docs/reviews/<trilha>/R{n}-{eu}.md e responda em R{n}-{outro}.md
 
 Enquanto a transição durar, é o Markim quem a usa. A reconciliação na abertura — listar a pasta e comparar estados — é obrigatória de qualquer jeito.
 
+## Quem escreve este contrato
+
+- **Um escritor por arquivo.** Dois editores no mesmo texto divergem sem ninguém notar, e a divergência aparece como contradição meses depois. Este arquivo tem um escritor: DSH. O outro lado revisa e aponta; não edita.
+- **Toda edição sobe a versão** e diz, em uma linha, o que mudou e por quê. A linha fica no próprio cabeçalho.
+- **Definir termo é do escritor, não do leitor.** Quando um termo deste contrato estiver indefinido — "mensagem descartada", "inteiramente de recibo" —, quem o define é quem escreve o contrato. Isso não é decisão do Markim: é o trabalho de manter o texto utilizável.
+- **Ao Markim cabe o que o contrato não pode decidir**: abrir mão de uma garantia, autorizar gasto, mudar o que o cenário pede. Uma pergunta que não é uma dessas três coisas é recomendação do escritor, com o gatilho de revisão escrito junto.
+
 ## O escopo
 
 Este documento governa a troca entre os dois harnesses, desde 2026-10-19. Nenhum outro documento é citado por ele, e ele não cita nenhum.
@@ -207,4 +215,4 @@ Este documento governa a troca entre os dois harnesses, desde 2026-10-19. Nenhum
 
 ## Contagens
 
-- **sent**: 1873 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).
+- **sent**: 2177 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).

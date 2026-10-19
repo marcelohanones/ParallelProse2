@@ -158,8 +158,10 @@ class CheckerTests(unittest.TestCase):
         build(p, checador=TARGET + " \u2014 0 achado(s)", opening=None)
         self.assertIn("opening", self.rules(p))
 
-    def test_checador_key_absent_before_vigencia(self):
-        p = self.dir / "R40-cc.md"
+    def test_checador_key_absent_in_the_first_round(self):
+        # A primeira mensagem de uma serie nao responde arquivo nenhum,
+        # e por isso nao tem o que citar na chave.
+        p = self.dir / "R1-cc.md"
         build(p)
         self.assertNotIn("checador", self.rules(p))
 
@@ -229,8 +231,10 @@ class CheckerTests(unittest.TestCase):
         label, _ = chk.classify(39, [("sent", "x")], set())
         self.assertEqual(label, "FALHA")
 
-    def test_classify_pre_vigencia_is_history(self):
-        label, reported = chk.classify(38, [("sent", "x")], set())
+    def test_classify_round_zero_is_history(self):
+        # Rodada 0 e o nome fora do padrao: nao casa FILE_RE, e o checador
+        # nao tem como situa-la na serie. Vai para historico, nao para falha.
+        label, reported = chk.classify(0, [("sent", "x")], set())
         self.assertEqual(label, "historico")
         self.assertEqual(reported, [("sent", "x")])
 
