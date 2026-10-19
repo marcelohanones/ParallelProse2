@@ -24,9 +24,8 @@ Code for 4a, 4b and 4c is in `src/parallelprose2/ingest/` and tested; 4a and 4b 
 | 4d | Augustine fixtures pass twice: F5 B and C, F6, F6b and F11 committed as bytes; F5 A as the F3 rename, its artifact compared byte for byte; the twice rule for every committed fixture; F8, F9 and F9b derived in the tests | `tests/test_fixtures_4d.py`; 101 tests; committed as `10abbcb`; settled by DSH's round 42; the both-books proof is item 5 (Debord printed numbers) | Done |
 | 5 | Ingestion runs on Debord: printed numbers (D5) and the both-books proof | `printed_no` attached to the leaf paragraph after each `h3.num`: 221 numbers, 1 to 221 once each; nine epigraphs null; 146 kept; Debord builds, writes and verifies twice the same (230 records); settled by DSH's round 43; D5 is the next emitted paragraph (Markim); a non-integer printed number is E-PRINTED-NUMBER-MALFORMED (M43); committed as `dc851a3`; 107 tests | Done |
 | 6 | Determinism and artifact checks: `version_id`, `content_hash` | `tests/test_determinism.py` checks the "Also required" list on both books: two runs byte-identical with the same `version_id` and `content_hash`; an artifact against the other book's inputs refused as `E-ARTIFACT-DIFFERENT-INPUT`; equal `version_id` with an unequal `content_hash` refused as a content mismatch; no front matter or heading text in the records; the report's non-body rows and the dropped `<p>`; 112 tests; settled by DSH's round 44, with the heading text taken whole and the report's non-body rows pinned by href, class and reason; committed as `3f92b41` | Done |
-| 7 | Ingestion output as consumed by the retriever contract | ingestion's side is unchanged since item 6; the contract (D1–D3) is in `docs/contract_retriever_editorial.md` | Parked |
 
-Next: item 6 is settled (round 44). Landmark 7 stays Parked until the contract ledger settles D1–D3.
+Next: item 6 is settled (round 44).
 
 Terms: "thesis" (or "tese") means the block's claim in the project's contract. Debord's printed numbers are
 "printed numbers", stored as `printed_no`. The two are never interchanged (M4).
@@ -562,8 +561,34 @@ round 43: `E-PRINTED-NUMBER-MALFORMED`, with the href of the file as the locator
 unreadable number would otherwise put a traceback where a typed stop belongs. Invalidated by: a book whose printed numbers are
 not integers, which would need a rule for them.
 
+**D7 — paragraph vectors are an artifact of ingestion.** Settles: where the vectors of the dense channel live. Premise:
+the retriever must be deterministic and its results must be reproducible from declared inputs, so the vectors are built
+once, here, and stored with their own descriptor, like the paragraphs. Their identity includes the embedding model's name
+and version, so a change of model is a change of `version_id`. The query is embedded at call time with the same model and
+is not part of this artifact. Invalidated by: a model that cannot be pinned to a name and version, or a retriever that
+must embed paragraphs on each call.
+
+**D8 — an address is a position, always read with its version and checked by hash.** Settles: what a citation carries.
+Premise: a position from ingestion means something only together with the version that produced it, and a position alone
+can point to different text after a re-ingestion without any error. Each paragraph also stores a content hash of its
+normalized text, as a check. A citation whose address, version and hash do not agree is refused. Invalidated by: a
+storage layer that gives stable paragraph identifiers across versions, which would make the hash redundant.
+
+**D9 — the cut-off is calibrated from the book's own paragraphs, as an artifact of ingestion.** Settles: where the
+cosine cut-off used for "no candidates" comes from. Premise: a fixed number chosen by hand would not follow the book or
+the model, and a cut-off derived from questions would need a reference set, which the project does not want to build.
+The calibration samples random pairs of paragraphs from the book, computes their cosine similarities, and takes a high
+percentile (for example the 99th) as the cut-off: a paragraph is a candidate only if it scores above what unrelated
+paragraphs typically reach. It runs once per ingestion version and model, is stored as an artifact with its own
+descriptor, and enters the version identity. The value 0.30 is only the starting value until the calibration has run.
+Invalidated by: a case where random pairs are not representative of the book, or a need for the cut-off to depend on the
+question.
+
 ## Open
 
+- **Vocabulary artifact** — mandatory for the retriever's first milestone. Its method, its content, its descriptor and
+  its place in the version identity are not yet specified; they are to be written here once the research in
+  `docs/retriever_requirements.md` has produced results.
 - **Manifest ids** — decided in M26 (`E-MANIFEST-DUPLICATE-HREF`, `E-MANIFEST-ORDER-MISMATCH`, `E-MANIFEST-CLASS-INVALID`) and M28 (`E-MANIFEST-MALFORMED`, `E-MANIFEST-REASON-MISSING`).
 - **Fixtures** — designed and accepted by DSH in R28 (F7 with one change, applied). Built as committed bytes with tests: F1, F2, F3, F4, F7, F10 and F12. F8, F9 and F9b are artifact tests derived from the F7 artifact at test time, not committed bytes (M17 runs each twice; round 34). Before 4d: F6, F6b, F11 and the F5 set. The package-level tests of M22 are in `tests/test_artifact.py`.
 - **Word count** — closed (M11). Method stated under Report, including the element-boundary rule; every published

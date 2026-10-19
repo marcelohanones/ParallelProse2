@@ -41,8 +41,8 @@ A recuperação adaptativa aprende com o vocabulário do material, e as palavras
 **3. Um LLM não pode escrever evidência.**
 A evidência é o trecho que a busca devolve do livro, e não do modelo.
 
-**4. Quem escreve a consulta da nova rodada: o retriever, a IA editorial, ou nenhum dos dois?**
-A pergunta está em aberto e será discutida em rodadas de CRITIQUE. A resposta define onde fica o LLM. Se o retriever escreve, ele precisa de um modelo; se a IA editorial escreve, a consulta vira parte do direcionamento; se nenhum dos dois escreve, a adaptação usa só as regras do retriever.
+**4. Quem escreve a consulta da nova rodada?**
+A IA editorial escreve a consulta da nova rodada, e ela chega ao retriever como argumento, em texto, junto com campos fechados. O retriever não contém modelo de linguagem; o modelo de embedding que vetoriza consultas faz parte da busca. Os detalhes estão em `docs/contract_retriever_editorial.md`, decisão D1.
 
 ## A medição como beco sem saída
 
@@ -126,13 +126,13 @@ Sugestões, não decisões. Todas se aplicam a um livro por execução.
 
 5. **Canal de busca denso como base, léxico como consulta separada.** Cada canal de busca devolve seu próprio ranking, e a fusão é uma decisão declarada, não o padrão da biblioteca. "Denso" descreve a família de recuperação por representação vetorial (embeddings): consulta e trechos são transformados em vetores e ranqueados pela proximidade de sentido. A alternativa de outra família é a recuperação esparsa, por contagem de termos, como o BM25. A escolha do modelo de embedding é uma decisão separada.
 
-6. **Parada definida antes da execução.** Cada bloco tem um número máximo de consultas à busca, fixado antes da execução. A busca para quando esse número se esgota ou quando não restam regiões do livro a visitar, o que vier primeiro. O limite de caracteres devolvidos é outra restrição, de outro responsável (a IA editorial), e seu ponto de aplicação é uma decisão do formato de saída. Nenhum juízo decide a parada.
+6. **Parada definida antes da execução.** Cada chamada tem um número máximo de consultas à busca, fixado na configuração da versão. O limite entre as chamadas de um bloco fica com a IA editorial. A busca para quando esse número se esgota ou quando não restam regiões do livro a visitar, o que vier primeiro. O limite de caracteres devolvidos é outra restrição, de outro responsável (a IA editorial), e seu ponto de aplicação é uma decisão do formato de saída. Nenhum juízo decide a parada.
 
 7. **Rastro estruturado por consulta.** Texto da consulta, canal de busca, posição de cada trecho devolvido, região visitada e motivo da parada. É o que permite distinguir "o livro não trata disso" de "a busca não tentou essa forma".
 
 8. **Cache por (livro, consulta, versão da ingestão, versão do código de recuperação, configuração da busca e modelo de embedding).** Mesma chave, mesmo resultado.
 
-9. **Variações da consulta geradas por modelo (multi-query).** Um LLM propõe algumas variações da consulta, a busca roda com cada uma, e os resultados são unidos. Depende da pergunta 4: se essa pergunta não for respondida a favor do modelo, esta feature não entra. Quando entrar, cada variação precisa aparecer no rastro, com a indicação de que foi gerada por modelo.
+9. **Variações da consulta geradas por modelo (multi-query).** Um LLM propõe algumas variações da consulta, a busca roda com cada uma, e os resultados são unidos. Fica fora do retriever, porque ele não contém modelo de linguagem (pergunta 4). Se for adotada, a variação gerada por modelo é um insumo da IA editorial, e cada variação precisa aparecer no rastro, com a indicação de que foi gerada por modelo.
 
 ## [Sugestão] Varredura inicial do corpus
 
