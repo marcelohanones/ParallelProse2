@@ -690,6 +690,8 @@ class WatcherTests(unittest.TestCase):
         self.assertNotIn("leitura em lote", note)
         self.assertIn("docs/auto_critique2.md", note)
         self.assertIn("Não investigue o ambiente.", note)
+        # a contagem de itens segue a v31 (cinco); trocá-la aqui quando o contrato mudar
+        self.assertIn("(cinco itens)", note)
 
     def test_monitor_rereads_the_state_each_tick(self):
         # 3.1: uma edição do estado no meio da sessão é respeitada pelo monitor, e não desfeita

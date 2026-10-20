@@ -49,7 +49,7 @@ NOTICES_KEPT = 20
 def procedure_note(responder: str) -> str:
     """O caminho do contrato no cwd de quem recebe: o dsh roda em docs/reviews/, o cc na raiz."""
     contract = "../auto_critique2.md" if responder == "dsh" else "docs/auto_critique2.md"
-    return " Siga o procedimento de rodada de %s (sete itens). Não investigue o ambiente." % contract
+    return " Siga o procedimento de rodada de %s (cinco itens). Não investigue o ambiente." % contract
 
 
 def new_state() -> dict:
