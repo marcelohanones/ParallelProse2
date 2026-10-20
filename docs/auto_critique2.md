@@ -1,6 +1,6 @@
 # Contrato da troca automatizada — ParallelProse2
 
-**Versão 22 — 2026-10-19.** Escrito por DSH. A v22 ancora a regex do passo 4 no começo da linha e dá nome próprio ao contador, `{sent}`: a v21 trocava também a prosa que citasse a chave. O motivo é o item 2 do plano, que o T15 deixou vermelho de propósito até aqui. A v21 acrescenta a reconciliação à lista do watcher, dá à previsão de chamadas a forma sem base, e prende o comando do passo 4 às duas chaves do `sent` — o `sed` global corrompeu a `R1-cc` em quatro trechos. O motivo é o item 1 do plano da `R3-cc`. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
+**Versão 23 — 2026-10-20.** Escrito por DSH. A v23 traz a política de falha para dentro do contrato, onde ela passa a ser regra: P-a a P-e descreviam o watcher e viviam fora dele. Ela também tira da tabela medida a linha de "chamadas de um salto: 40", que não se refaz pelos artefatos deste repositório, e põe no lugar as duas medidas que saem do log de hop. E corrige a data da versão, que dizia 2026-10-19 desde a v21, quando a v21 e a v22 são de 2026-10-20. O motivo é a `D4`: a série em curso só é aposentada depois que o contrato que o monitor obedece está completo. A v22 ancora a regex do passo 4 no começo da linha e dá nome próprio ao contador, `{sent}`: a v21 trocava também a prosa que citasse a chave. O motivo é o item 2 do plano, que o T15 deixou vermelho de propósito até aqui. A v21 acrescenta a reconciliação à lista do watcher, dá à previsão de chamadas a forma sem base, e prende o comando do passo 4 às duas chaves do `sent` — o `sed` global corrompeu a `R1-cc` em quatro trechos. O motivo é o item 1 do plano da `R3-cc`. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
 
 ## O cenário
 
@@ -105,6 +105,18 @@ claude -p {line} --permission-prompts none --allowedTools Read "Edit(docs/review
 
 **O disparo do dsh roda fora do sandbox.** O perfil do dsh é gravado em `~/.dsh` antes de qualquer chamada de API, e um sandbox de escrita bloqueia ali com `EPERM` — o erro não é da forma do comando, é do lugar onde ele roda. Medido em 2026-10-19: sob sandbox de escrita, `dsh headless --help` para em `~/.dsh/profiles/headless/cordis.yml` com `EPERM` e sai com código 1. A passada e o disparo do lado cc não tocam `~/.dsh` e não têm essa exigência.
 
+## A política de falha
+
+**Serve a:** A. **Premissa:** um salto que falha não pode ser repetido — um lado escreve uma vez por número —, e uma falha que não se atribui não se manda refazer. O destino é `tools/.watcher-hops/index.jsonl`, uma linha por salto, com rodada, alvo, motivo, caminho do log, passos e a previsão declarada.
+
+- **P-a — saída diferente de zero, ou timeout de 1800 s:** o salto é registrado como `falha-de-salto`; o aviso nomeia a rodada e o alvo, e não há nova tentativa.
+- **P-b — saída zero e nenhum `R{n}-{respondente}.md` no registro ao fim:** `sem-resposta`. O salto rodou, então ele conta na cadeia; e não há nova tentativa.
+- **P-c — resposta que falha o checador:** recusa e aviso, e o arquivo recusado continua em `seen`, com a notícia nomeando o arquivo.
+- **P-d — o marcador do `sent` presente por mais de quinze minutos:** aviso, nem FALHA nem silêncio.
+- **P-e — o monitor e a colagem manual são gatilhos da mesma cadeia:** enquanto o monitor roda, o `--status` o anuncia como ativo, e a colagem não é o caminho normal.
+
+**Invalidaria:** a repetição passar a ser segura — observar um salto de saída diferente de zero que ainda assim deixa a resposta completa. Aí a decisão de repetir volta, e volta escrita.
+
 ## A cadeia
 
 - Um **salto** é um disparo do watcher.
@@ -119,7 +131,8 @@ claude -p {line} --permission-prompts none --allowedTools Read "Edit(docs/review
 | primeira chamada com o bloco de regras, prompt total | 14,7 a 17,2 mil (medido: 15.833) | derivado da base de 12.318; a medição da R2-dsh cai dentro da faixa |
 | rodar o checador com a saída descartada | ~26 tokens | diferença na mesma posição de chamada |
 | trazer a saída do checador ao contexto | ~2.700 tokens | diferença na mesma posição de chamada |
-| chamadas de um salto | 40 | medido no log de sessão da R2-dsh, 2026-10-19; depende das ferramentas usadas |
+| passos de modelo por salto | 18, 45, 76, 52, 27, 65 e 27; mediana 45 | contados de `step_start` em `tools/.watcher-hops/hop-*-R{8,9,10,11,13,14,15}-dsh.json`, 2026-10-20 |
+| `tool_call` por salto | 27, 53, 88, 64, 35, 75 e 33 | contados de `type: tool_call` nos mesmos sete arquivos; `tool_call` não é passo de modelo |
 | salto medido — entrada nova | 55.434 | medido: soma de `inputTokens` das 40 chamadas |
 | salto medido — saída | 69.776 | medido: soma de `outputTokens` |
 | salto medido — cache lido | 3.285.888 | medido: soma de `cacheReadTokens` |
@@ -128,13 +141,13 @@ claude -p {line} --permission-prompts none --allowedTools Read "Edit(docs/review
 
 **Os campos são os do log de sessão do dsh:** entrada nova é `inputTokens` (o que não veio do cache); cache lido é `cacheReadTokens`; cache escrito é `cacheWriteTokens`; saída é `outputTokens`. O prompt de uma chamada é entrada nova + cache lido; o custo do salto é a soma das chamadas.
 
-**O que a faixa de 14,7 a 17,2 mil inclui:** a primeira chamada do salto, não o salto. Ela soma a base de 12.318, o bloco de regras de 2.153 e a rodada lida, de 230 a 2.724; a medição da R2-dsh dá 15.833 de prompt total. Ela **não** inclui ler o contrato inteiro (mais 5.932) nem o prompt do watcher (cerca de 400). Um salto que faça qualquer das duas coisas custa mais, e a estimativa tem de dizer qual dos casos está estimando. O salto inteiro é a soma das chamadas: 40 no medido, e o número cresce com as ferramentas.
+**O que a faixa de 14,7 a 17,2 mil inclui:** a primeira chamada do salto, não o salto. Ela soma a base de 12.318, o bloco de regras de 2.153 e a rodada lida, de 230 a 2.724; a medição da R2-dsh dá 15.833 de prompt total. Ela **não** inclui ler o contrato inteiro (mais 5.932) nem o prompt do watcher (cerca de 400). Um salto que faça qualquer das duas coisas custa mais, e a estimativa tem de dizer qual dos casos está estimando. O salto inteiro é a soma das chamadas: 45 na mediana dos sete, e o número cresce com as ferramentas.
 
 **A medição separa o que a tabela antiga misturava.** A linha de base de 10,6 mil é a entrada nova da primeira chamada; a composição de 14,7 a 17,2 mil é o prompt total dessa chamada. A medição da R2-dsh dá 10.713 de entrada nova, 5.120 de cache lido e 15.833 de prompt na primeira chamada; no salto, 55.434, 3.285.888 e 3.341.322. Quem estima diz se está estimando a primeira chamada ou o salto, e quantas chamadas o salto deve fazer.
 
 **O lado cc não entra nesta tabela.** Ele roda na assinatura do plano Pro, informada pelo Markim, e não cobra por token: não há base dele a medir. Os números acima são do dsh.
 
-Estas são as medidas que sustentam as regras acima. As de 40 chamadas são do primeiro salto pago, a sessão `session-c220c8f8-a8d5-4af6-b1ba-df966fa29456`, que gravou a `R2-dsh.md` em **2026-10-19**; a conta é a soma de `inputTokens`, `outputTokens`, `cacheReadTokens` e `cacheWriteTokens` por chamada, e o log de sessão é o artefato. As demais foram feitas em sessões headless reais na mesma data, com reconciliação de tokens por chamada. Quem quiser refazê-las repete o experimento.
+Estas são as medidas que sustentam as regras acima. As de token são do primeiro salto pago, a sessão `session-c220c8f8-a8d5-4af6-b1ba-df966fa29456`, que gravou a `R2-dsh.md` em **2026-10-19**; a conta é a soma de `inputTokens`, `outputTokens`, `cacheReadTokens` e `cacheWriteTokens` por chamada, e o log de sessão é o artefato; aquele salto fez 40 chamadas. Aquele log de hop está no repositório e não tem JSON — ele rodou antes do `--json` —, então as linhas de token não se refazem relendo o arquivo: refaz-se o salto. As de passos e de `tool_call` sim: saem de `tools/.watcher-hops/`, e são sete saltos. As demais foram feitas em sessões headless reais na mesma data, com reconciliação de tokens por chamada. Quem quiser refazê-las repete o experimento.
 
 ## A transição
 
@@ -281,4 +294,4 @@ Este documento governa a troca entre os dois harnesses, desde 2026-10-19. Nenhum
 
 ## Contagens
 
-- **sent**: 4226 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).
+- **sent**: 4636 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).

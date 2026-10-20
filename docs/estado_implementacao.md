@@ -15,13 +15,7 @@ Os itens 1, 3, 4, 5 e 8 são código do watcher, cobertos pelos itens 11, 6, 9, 
 
 ## Política de falha e de espera (P-a a P-e)
 
-Fechada pelos dois harnesses na R2-dsh; proposta pelo cc em `R1-cc.md:40-43` e corrigida pelo dsh em `R1-dsh.md:62-67`. Ela vivia só nas rodadas, e é aqui que dura. O bloco foi escrito pelo dsh em 2026-10-20, depois do `passa`.
-
-- **P-a — saída diferente de zero, ou timeout de 1800 s:** estado `falha-de-salto`, aviso nomeando rodada e alvo, sem nova tentativa. Dono: cc. Implementação: item 8.
-- **P-b — saída zero e nenhum `R{n}-{respondente}.md` no fim:** estado `sem-resposta`, aviso, sem nova tentativa. Dono: cc. Implementação: item 8.
-- **P-c — resposta que falha o checador:** recusa e avisa, e o arquivo recusado continua em `seen`, com a notícia nomeando o arquivo. Dono: cc. Implementação: item 8.
-- **P-d — o marcador do `sent` presente por mais de quinze minutos:** aviso, não FALHA e não silêncio. Dono: cc, que propôs o prazo em `R1-cc.md:43`. Implementação: item 5.
-- **P-e — o monitor e a colagem manual são gatilhos da mesma cadeia:** enquanto o monitor roda, ele anuncia "monitor ativo" no `--status`, e a colagem deixa de ser o caminho normal. Dono: dsh, que a propôs em `R1-dsh.md:67`. Implementação: item 11.
+Vive no contrato desde a **v23**, na seção `## A política de falha`. Fechada pelos dois harnesses na R2-dsh — proposta pelo cc em `R1-cc.md:40-43`, corrigida pelo dsh em `R1-dsh.md:62-67` —, ela esteve aqui até a v23, e não se repete aqui: duas cópias da mesma regra foi o defeito do `PROCEDURE_NOTE`, e não se conserta criando outra.
 
 A `R1-cc` guarda `1154` no lugar do marcador: o `sed` global do passo 4 o trocou em quatro trechos, e o arquivo não se edita. O P-d lê-se com o marcador, que é `0000`.
 
@@ -55,9 +49,10 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 
 **Autorização de saltos e plano**
 - **D1, respondida pelo Markim em 2026-10-20:** sem teto. O contador de saltos relata, e não impede disparo. Confirma a Regra 5 do contrato; a linha anterior, que autorizava cinco saltos com dois usados, fica retirada.
+- **D4, respondida pelo Markim em 2026-10-20:** a série em curso é aposentada **depois** que a v23 entrar. A ordem é esta: a v23 no contrato, fechar a série, apagar o registro, `--new-series`, e só então o monitor. Falta um passo nessa lista, e ele vem depois do reset: com o registro vazio, a primeira mensagem da série nova não tem linha de disparo — não há arquivo para citar —, então o Markim pede a um lado, à mão, que escreva `R1-{lado}.md`, e é esse arquivo que abre a série. Enquanto a ordem não se cumprir, a passada de verdade não roda — ela toma a linha de base no meio da série.
 - **D2, respondida em 2026-10-20:** a concordância do Markim com o plano vem depois da revisão do dsh, e não antes. **D3 foi retirada** pelo dsh: era um bloqueio sem default, e o plano executa zero chamadas de API.
 - **O plano dos doze itens** está aceito pelos dois harnesses, com as correções dos itens 5, 6 e 9 e os refinamentos dos itens 1 e 3. O Markim deu o `passa` em 2026-10-20.
-- **O item 1 está feito:** contrato na v22, com a reconciliação como passo 6 do watcher, a previsão sem base e o comando do passo 4 preso às duas chaves do `sent`.
+- **O item 1 está feito:** contrato na v23, com a reconciliação como passo 6 do watcher, a previsão sem base, o comando do passo 4 preso às duas chaves do `sent` e a política de falha dentro dele.
 
 **Pendente, com quem**
 - **Markim:** a lista de capacidades liberadas para o salto do dsh — o que ele pode ler, escrever e executar. A recomendação medida é manter `workspace-write` para escrita e auditar leitura e shell no watcher sem bloquear.
