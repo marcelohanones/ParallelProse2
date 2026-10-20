@@ -1,15 +1,15 @@
 ## Pendências para o cenário
 
-Para a regra "o arquivo na pasta é o start do outro harness" valer, falta isto. Nada abaixo está implementado.
+Para a regra "o arquivo na pasta é o start do outro harness" valer, falta isto. Os itens marcados como feitos estão implementados no `4444a10`; os demais não.
 
 1. **Um monitor contínuo.** Hoje o watcher roda uma passada e sai. Precisa de um processo que observe `docs/reviews/` e detecte o arquivo novo sem ninguém executá-lo. Sem isso, a pasta não é start de nada.
 2. **Nenhuma colagem manual.** A transição manda o Markim colar a linha de disparo. Ela deve virar recurso de emergência, fora do fluxo normal. **Decidido na R5:** não é regra nova — é consequência do item 11, e a colagem fica como emergência, como o contrato já diz.
-3. **Ordem de arquivos novos.** Se chegam dois arquivos não vistos, o watcher recusa os dois. Processar em ordem não serve: `dispatch_line` só está correta quando o gatilho é o último arquivo da rodada, e o par processado em ordem dispara duas vezes, uma delas para o lado errado. O par colapsa num gatilho só — o último —, e o alvo é `R{n+1}-{quem abriu}`; a ordem vem da citação "Segue a mensagem", não do nome nem do `mtime`.
-4. **Um start, uma vez.** O watcher marca o arquivo e grava o estado antes do disparo, então a queda não repete o start: ela o perde em silêncio. Falta o `disparando` com id, e no reinício um `disparando` sem resultado vira "salto interrompido, olhar humano", sem novo disparo.
-5. **Falha de salto com política.** A falha já é terminal: o arquivo está em `seen` e a passada seguinte não repete o disparo. Falta o destino durável — um registro por rodada, com rodada, alvo, motivo e caminho do log —, e o aviso precisa nomear a rodada e o alvo, que hoje ele não nomeia.
+3. **Ordem de arquivos novos.** O par que chega junto colapsa num gatilho só — o último —, e o alvo é `R{n+1}-{quem abriu}`; a ordem vem da citação "Segue a mensagem", não do nome nem do `mtime`. Processar em ordem não serve: `dispatch_line` só está correta quando o gatilho é o último arquivo da rodada, e o par processado em ordem dispara duas vezes, uma delas para o lado errado. **Feito no `4444a10`.**
+4. **Um start, uma vez.** O watcher marca o arquivo e grava o estado antes do disparo, então a queda não repete o start. O `disparando` com id vai na mesma gravação, e no reinício um `disparando` sem resultado vira "salto interrompido, olhar humano", sem novo disparo. **Feito no `4444a10`.**
+5. **Falha de salto com política.** A falha é terminal — o arquivo está em `seen` e a passada seguinte não repete o disparo — e o destino é durável: `tools/.watcher-hops/index.jsonl`, uma linha por salto com rodada, alvo, motivo, caminho do log, passos e previsão. O aviso nomeia a rodada e o alvo. **Feito no `4444a10`.**
 6. **O `passa` vira arquivo.** Hoje o `passa` é digitado no chat. Para a automação valer, ele precisa ser um sinal que o harness detecte sozinho. **Decidido na R5:** sai. O cenário diz que o harness registra o arquivo no evento do `passa`, e o harness presente é o que o Markim fala; o T9 passa a dizer que o arquivo seguinte é escrito por ele.
 7. **Permissões para rodar sozinho.** O dsh roda com `workspace-write` e aprovação `ask`, e o cc com o comando aprovado. Falta verificar num salto que começa sem nenhum humano por perto. **Decidido na R5:** sai como pendência. Os três saltos headless não mostram bloqueio de permissão, e o item 11 ganha o teste de fumaça — um salto sem humano, `workspace-write`, escrita só em `docs/reviews/`.
-8. **Prontidão antes da marca.** O watcher marca o arquivo em `seen` antes de checar, então um arquivo observado a meio do procedimento — cabeçalho em `0000`, contagem, `sed` — é marcado, recusado por `FALHA` e depois lido como reescrita: a rodada morre em silêncio. Prontidão (`sent` igual a `LC_ALL=C wc -w`, sha estável, checador limpo) decide antes de qualquer marca.
+8. **Prontidão antes da marca.** Rascunho com o marcador espera: não entra em `seen`, não vira FALHA, e depois do prazo do P-d vira aviso. O defeito que isto corrige: um arquivo observado a meio do procedimento — cabeçalho em `0000`, contagem, `sed` — era marcado, recusado por `FALHA` e depois lido como reescrita, e a rodada morria em silêncio. **Feito no `4444a10`.**
 
 Os itens 1, 3, 4, 5 e 8 são código do watcher, cobertos pelos itens 11, 6, 9, 8 e 5 do plano. O 2, o 6 e o 7 saíram por derivação, com a decisão escrita acima.
 
@@ -60,7 +60,7 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 
 **Pendente, com quem**
 - **Markim:** a lista de capacidades liberadas para o salto do dsh — o que ele pode ler, escrever e executar. A recomendação medida é manter `workspace-write` para escrita e auditar leitura e shell no watcher sem bloquear.
-- **Código do watcher:** os itens 1, 3, 4 e 5 das pendências, na ordem do plano — e o item 2 do plano é o próximo.
+- **Código do watcher:** o monitor está escrito (item 11 do plano) e **não rodou contra um salto real**. O estado real ainda é o da série anterior, e `--new-series` não foi rodado: a adoção exige aposentar a série em curso, porque o registro nunca está vazio enquanto a troca vive.
 - **Git:** o `README.md` da raiz é um arquivo vazio versionado.
 
 **Comandos úteis**
