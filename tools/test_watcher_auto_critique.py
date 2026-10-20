@@ -905,6 +905,28 @@ class WatcherTests(unittest.TestCase):
         listed = w.changed_outside_reviews(repo)
         self.assertEqual(listed, ["tools/outra.py"])
 
+    def test_adopt_marks_every_round_seen_without_dispatching(self):
+        # --adopt: as rodadas que já estão na pasta ficam vistas; o disparo não acontece
+        make_round(self.reviews, "R1-cc.md")
+        make_round(self.reviews, "R1-dsh.md", cites="R1-cc.md")
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        out = []
+        with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
+            code = w.main(["--state", str(self.state_path), "--reviews", str(self.reviews),
+                           "--hop-logs", str(self.root / "hops"), "--dsh", str(self.fake), "--adopt"])
+        self.assertEqual(code, 0)
+        self.assertTrue(any("adotadas 3 rodada(s)" in line for line in out), out)
+        self.assertFalse(self.log.exists(), "nenhum disparo")
+        state = w.load_state(self.state_path)
+        self.assertEqual(set(state["seen"]), {"R1-cc.md", "R1-dsh.md", "R2-cc.md"})
+
+    def test_adopt_refuses_while_a_live_lock_holds_the_state(self):
+        make_round(self.reviews, "R1-cc.md")
+        (self.root / "monitor.lock").write_text(str(os.getpid()), encoding="utf-8")
+        code = w.main(["--state", str(self.state_path), "--reviews", str(self.reviews), "--adopt"])
+        self.assertEqual(code, 1)
+        self.assertEqual(w.load_state(self.state_path)["seen"], {}, "nada foi marcado")
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2

@@ -669,6 +669,7 @@ def parse_args(argv=None):
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--status", action="store_true")
     parser.add_argument("--new-series", action="store_true")
+    parser.add_argument("--adopt", action="store_true")
     parser.add_argument("--monitor", action="store_true")
     parser.add_argument("--set-cc-cmd")
     return parser.parse_args(argv)
@@ -726,6 +727,19 @@ def main(argv=None) -> int:
             return 1
         return watch(Path(args.reviews), state_path, Path(args.hop_logs), dsh_bin=args.dsh_bin,
                      timeout=args.timeout)
+
+    if args.adopt:
+        # marca como vistas as rodadas que já estão na pasta; não dispara nada
+        if monitor_alive(lock):
+            print("monitor ativo pela trava (pid %s): pare-o antes de adotar" % lock_holder(lock))
+            return 1
+        entries = scan(Path(args.reviews))
+        for entry in entries:
+            state["seen"][entry["name"]] = entry["sha"]
+        state["initialized"] = True
+        save_state(state_path, state)
+        print("adotadas %d rodada(s) como vistas; nenhum disparo" % len(entries))
+        return 0
 
     if args.new_series:
         code, message = start_new_series(state_path, Path(args.reviews))
