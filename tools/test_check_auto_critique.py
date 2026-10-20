@@ -351,7 +351,9 @@ class ContractStepFourCommand(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = pathlib.Path(tmp) / "R9-cc.md"
             path.write_text(text, encoding="utf-8")
-            cmd = template.replace("docs/reviews/R{n}-{lado}.md", str(path))
+            # o caminho é o último token do comando: desde a v29 ele é `{resposta}`, e o
+            # teste lê o que o contrato escreve em vez de fixar a forma do caminho
+            cmd = template.rsplit(" ", 1)[0] + " " + str(path)
             cmd = cmd.replace("{%s}" % token, "1234")
             subprocess.run(shlex.split(cmd), check=True, capture_output=True)
             return path.read_text(encoding="utf-8").splitlines()

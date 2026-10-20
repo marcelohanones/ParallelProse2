@@ -45,8 +45,10 @@ POLL_SECONDS = 10  # o monitor consulta a pasta a cada dez segundos
 NOTICES_KEPT = 20
 # acrescentado à linha de disparo, nos dois lados: aponta o procedimento do contrato em vez de
 # copiá-lo, para não envelhecer; e a investigação do ambiente não é passo de rodada
-PROCEDURE_NOTE = (" Siga o procedimento de rodada de docs/auto_critique2.md (sete itens). "
-                  "Não investigue o ambiente.")
+def procedure_note(responder: str) -> str:
+    """O caminho do contrato no cwd de quem recebe: o dsh roda em docs/reviews/, o cc na raiz."""
+    contract = "../auto_critique2.md" if responder == "dsh" else "docs/auto_critique2.md"
+    return " Siga o procedimento de rodada de %s (sete itens). Não investigue o ambiente." % contract
 
 
 def new_state() -> dict:
@@ -142,17 +144,18 @@ def sides_of(entries: list[dict], round_no: int) -> set[str]:
 
 
 def dispatch_line(trigger: dict, entries: list[dict]) -> dict:
-    """A linha de disparo, na forma que o contrato dá para cada caso."""
+    """A linha de disparo: os nomes saem do cwd de quem recebe (docs/reviews/ para o dsh, a raiz para o cc)."""
     round_no, side = trigger["round"], trigger["side"]
     other = "dsh" if side == "cc" else "cc"
+    prefix = "docs/reviews/" if other == "cc" else ""
     if other in sides_of(entries, round_no):
         target = round_no + 1
-        line = "par completo:   leia docs/reviews/R%d-%s.md e responda em R%d-%s.md" % (
-            round_no, side, target, other)
+        line = "par completo:   leia %sR%d-%s.md e responda em %sR%d-%s.md" % (
+            prefix, round_no, side, prefix, target, other)
     else:
         target = round_no
-        line = "rodada aberta:  leia docs/reviews/R%d-%s.md e responda em R%d-%s.md" % (
-            round_no, side, target, other)
+        line = "rodada aberta:  leia %sR%d-%s.md e responda em %sR%d-%s.md" % (
+            prefix, round_no, side, prefix, target, other)
     return {"line": line, "responder": other, "round": target}
 
 
@@ -174,10 +177,11 @@ def preflight() -> tuple[bool, str]:
     return True, ""
 
 
-def run_argv(argv: list[str], timeout: int, env: dict | None = None) -> tuple[bool, str, dict]:
+def run_argv(argv: list[str], timeout: int, env: dict | None = None,
+             cwd: Path | None = None) -> tuple[bool, str, dict]:
     """Roda e devolve a saída: é dela que sai a reconciliação de passos da Regra 6."""
     try:
-        proc = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout,
+        proc = subprocess.run(argv, cwd=str(cwd or ROOT), capture_output=True, text=True, timeout=timeout,
                               env=env)
     except OSError as exc:
         return False, "falha ao executar %s: %s" % (argv[0], exc), {"argv": argv, "error": str(exc)}
@@ -192,9 +196,11 @@ def run_argv(argv: list[str], timeout: int, env: dict | None = None) -> tuple[bo
 
 
 def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int, target: str,
-             hop: str):
-    # os dois lados seguem o mesmo protocolo: o trecho vai na linha de disparo de cada um
-    line = line + PROCEDURE_NOTE
+             hop: str, reviews: Path):
+    # o trecho do procedimento sai com o caminho do contrato no cwd de quem recebe
+    line = line + procedure_note(responder)
+    # o dsh roda com o cwd em docs/reviews/, e a escrita dele fica nessa pasta; o cc roda na raiz
+    cwd = reviews if responder == "dsh" else ROOT
     if responder == "dsh":
         # --json troca a mensagem final pelos eventos do passo, com o uso de cada
         # chamada: e do stdout do salto que sai a reconciliacao da Regra 6.
@@ -212,7 +218,7 @@ def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int,
     # cadeia de pais com ps (que nao casa com o comando aprovado).
     env = dict(os.environ)
     env["WATCHER_HOP"] = hop
-    ok, reason, output = run_argv(argv, timeout, env=env)
+    ok, reason, output = run_argv(argv, timeout, env=env, cwd=cwd)
     return ok, reason, argv, output
 
 
@@ -432,7 +438,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     save_now()
     ok, why, argv, output = dispatch(plan["responder"], plan["line"], state, dsh_bin, timeout,
-                                     target, hop)
+                                     target, hop, reviews)
     state.pop("disparando", None)  # o salto voltou: não é mais um salto em curso
     log_path = write_hop_log(hop_logs, trigger, plan, output) if (hop_logs is not None and output) else None
     if not ok:

@@ -29,10 +29,10 @@ with open(os.environ["%s"], "w") as handle:
 if os.environ.get("FAKE_SLEEP"):
     time.sleep(float(os.environ["FAKE_SLEEP"]))
 line = " ".join(sys.argv[1:])
-found = re.search(r"responda em (R[0-9]+-[a-z]+\\.md)", line)
+found = re.search(r"responda em (?:docs/reviews/)?(R[0-9]+-[a-z]+\\.md)", line)
 if found and os.environ.get("FAKE_REVIEWS") and not os.environ.get("FAKE_SILENT") and os.environ.get("FAKE_EXIT", "0") == "0":
     # o salto de verdade grava a resposta: o dsh falso faz o mesmo, numa rodada bem formada
-    cited = re.search(r"leia docs/reviews/(R[0-9]+-[a-z]+\\.md)", line)
+    cited = re.search(r"leia (?:docs/reviews/)?(R[0-9]+-[a-z]+\\.md)", line)
     prev = cited.group(1) if cited else ""
     checker = ("checador: " + prev + " — 0 achado(s)\\n\\nSegue a mensagem " + prev + "\\n\\n") if prev else ""
     body = ("<!-- sent: 0000 palavras (x) -->\\n" + checker
@@ -137,8 +137,8 @@ class WatcherTests(unittest.TestCase):
         result = self.run_pass()
         self.assertEqual(result["action"], "dispatch")
         self.assertEqual(self.argv(), ["--profile", "headless", "--json",
-                         "rodada aberta:  leia docs/reviews/R2-cc.md e responda em R2-dsh.md"
-                         + w.PROCEDURE_NOTE])
+                         "rodada aberta:  leia R2-cc.md e responda em R2-dsh.md"
+                         + w.procedure_note("dsh")])
         self.assertEqual(self.state["chain"]["count"], 1)
 
     def test_complete_pair_dispatches_the_next_round(self):
@@ -150,8 +150,8 @@ class WatcherTests(unittest.TestCase):
         result = self.run_pass()
         self.assertEqual(result["action"], "dispatch")
         sent = json.loads(self.log_cc.read_text())
-        self.assertEqual(sent, ["par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md"
-                                + w.PROCEDURE_NOTE])
+        self.assertEqual(sent, ["par completo:   leia docs/reviews/R2-dsh.md e responda em docs/reviews/R3-cc.md"
+                                + w.procedure_note("cc")])
 
     def test_addendum_never_triggers(self):
         self.baseline()
@@ -187,7 +187,7 @@ class WatcherTests(unittest.TestCase):
         result = self.run_pass()
         self.assertEqual(result["action"], "dispatch")
         self.assertFalse(self.log.exists(), "o dsh não foi chamado: o par responde pelo primeiro, o cc")
-        self.assertIn("responda em R2-cc.md", self.log_cc.read_text())
+        self.assertIn("responda em docs/reviews/R2-cc.md", self.log_cc.read_text())
         self.assertEqual(set(self.state["seen"]), {"R1-cc.md", "R1-dsh.md"}, "o par inteiro fica visto")
         self.assertEqual(self.state["chain"]["count"], 1)
 
@@ -660,7 +660,7 @@ class WatcherTests(unittest.TestCase):
 
     def test_procedure_note_names_no_version_and_no_step_list(self):
         # item 12: a nota é uma segunda cópia do procedimento; sem versão e sem lista, ela não envelhece
-        note = w.PROCEDURE_NOTE
+        note = w.procedure_note("cc")
         self.assertNotRegex(note, r"v\d+")
         self.assertNotIn("leitura em lote", note)
         self.assertIn("docs/auto_critique2.md", note)
@@ -802,6 +802,40 @@ class WatcherTests(unittest.TestCase):
             w.main(["--state", str(self.state_path), "--status", "--hop-logs", str(self.root / "h")])
         self.assertTrue(any("pela trava" in line for line in out), out)
 
+    def cwd_probe(self, name):
+        """Um disparo falso que grava o diretorio de trabalho em que foi chamado."""
+        out = self.root / (name + ".cwd")
+        probe = self.root / name
+        probe.write_text("#!/usr/bin/env python3\nimport os\nopen(%r, 'w').write(os.getcwd())\n" % str(out),
+                         encoding="utf-8")
+        probe.chmod(0o755)
+        return probe, out
+
+    def test_dsh_hop_runs_in_the_reviews_folder(self):
+        # o dsh escreve em docs/reviews/: o processo dele começa lá, e o watcher diz isso
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        probe, out = self.cwd_probe("dsh-cwd")
+        result = self.run_pass(dsh_bin=str(probe))
+        self.assertIn(result["action"], ("dispatch", "no-answer"))
+        self.assertEqual(pathlib.Path(out.read_text()).resolve(), self.reviews.resolve())
+
+    def test_cc_hop_runs_in_the_repository_root(self):
+        # o cc roda na raiz do repositório, porque o comando aprovado dele escreve em caminhos de lá
+        self.baseline()
+        probe, out = self.cwd_probe("cc-cwd")
+        self.state["cc_argv"] = [str(probe)]
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        self.run_pass()
+        result = self.run_pass()
+        self.assertIn(result["action"], ("dispatch", "no-answer"))  # o probe não grava resposta
+        self.assertEqual(pathlib.Path(out.read_text()).resolve(), w.ROOT.resolve())
+
+    def test_procedure_note_points_to_the_contract_from_each_side(self):
+        self.assertIn("../auto_critique2.md", w.procedure_note("dsh"))
+        self.assertIn("docs/auto_critique2.md", w.procedure_note("cc"))
+        self.assertNotIn("../", w.procedure_note("cc"))
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2
@@ -844,7 +878,7 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(len(files), 1)
         record = json.loads(files[0].read_text(encoding="utf-8"))
         self.assertEqual(record["line"],
-                         "rodada aberta:  leia docs/reviews/R2-cc.md e responda em R2-dsh.md")
+                         "rodada aberta:  leia R2-cc.md e responda em R2-dsh.md")
         self.assertIn("argv", record["output"])
 
     def test_state_is_saved_before_the_dispatch(self):
@@ -873,7 +907,7 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(result["action"], "dispatch")
         self.assertEqual(json.loads(self.log_cc.read_text()), [
             "-p",
-            "par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md" + w.PROCEDURE_NOTE,
+            "par completo:   leia docs/reviews/R2-dsh.md e responda em docs/reviews/R3-cc.md" + w.procedure_note("cc"),
             "--allowedTools",
             "Write(docs/reviews/R3-cc.md)",
         ])
