@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import pathlib
+import subprocess
 import copy
 import sys
 import tempfile
@@ -892,6 +893,17 @@ class WatcherTests(unittest.TestCase):
         with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": "  Workspace-Write "}):
             ok, _ = w.preflight()
         self.assertTrue(ok)
+
+    def test_changed_outside_reviews_lists_only_paths_outside_the_round_folder(self):
+        # visibilidade: uma escrita fora de docs/reviews/ aparece no registro do hop
+        repo = self.root / "repo"
+        (repo / "docs" / "reviews").mkdir(parents=True)
+        (repo / "tools").mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=str(repo), check=True)
+        (repo / "tools" / "outra.py").write_text("x = 1\n", encoding="utf-8")
+        (repo / "docs" / "reviews" / "R1-cc.md").write_text("x\n", encoding="utf-8")
+        listed = w.changed_outside_reviews(repo)
+        self.assertEqual(listed, ["tools/outra.py"])
 
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)

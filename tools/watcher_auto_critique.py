@@ -275,6 +275,29 @@ def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
     return (measured[middle - 1] + measured[middle]) / 2
 
 
+def changed_outside_reviews(root: Path | None = None) -> list[str] | None:
+    """Os caminhos que o repositório tem alterados ou novos fora de docs/reviews/, agora.
+
+    Registra a escrita que o hop fez fora da pasta de rodadas, e não depende de alguém lembrar de declará-la.
+    None quando o git não responde: a ausência de registro é dita, não suposta.
+    """
+    try:
+        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"],
+                             cwd=str(root or ROOT), capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if out.returncode != 0:
+        return None
+    paths = []
+    for line in out.stdout.splitlines():
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.split(" -> ")[-1]
+        if not path.startswith("docs/reviews/"):
+            paths.append(path)
+    return sorted(paths)
+
+
 def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, reason: str,
                log_path: Path | None, passos: int | None = None, previsto: float | None = None) -> None:
     """Uma linha por salto: rodada, alvo, motivo, caminho do log, e os passos contra a previsão."""
@@ -286,7 +309,8 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
              "passos": passos, "previsto": previsto,
-             "modo": FIXED_DSH_MODE if plan["responder"] == "dsh" else None}
+             "modo": FIXED_DSH_MODE if plan["responder"] == "dsh" else None,
+             "fora_de_reviews": changed_outside_reviews()}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
 
