@@ -64,4 +64,6 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 - `python3 -m unittest discover -s tools` — suíte completa. Rode com a saída guardada, `> /tmp/suite.log 2>&1`, e só depois olhe o resumo: filtrar até `OK`/`FAILED` foi o que apagou o nome do teste que falhou em 2026-10-20, e é por isso que aquela falha segue sem explicação.
 - `python3 tools/watcher_auto_critique.py --status` — contador e últimos avisos.
 - `python3 tools/watcher_auto_critique.py --dry-run` — mostra o que dispararia, sem gravar nada.
+- `python3 tools/watcher_auto_critique.py --monitor` — o laço: consulta a pasta a cada 10 s e processa quando ela ficou igual. Um salto por vez; o `--status` mostra "monitor ativo" enquanto ele roda.
+- `python3 tools/watcher_auto_critique.py --new-series` — arquiva o estado anterior e abre a série nova. Exige registro vazio, e o registro nunca está vazio enquanto a troca vive.
 - Uma passada que dispara um salto demora de 4 a 8 minutos: rode em segundo plano.
