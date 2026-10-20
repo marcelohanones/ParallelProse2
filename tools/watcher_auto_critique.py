@@ -228,6 +228,26 @@ def count_steps(stdout: str) -> int | None:
     return count if count else None
 
 
+def tokens_of(stdout: str) -> dict | None:
+    """Tokens do salto: a soma de usage dos eventos step_end. Sem usage, sem base."""
+    totals = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
+    seen = False
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict) or event.get("phase") != "step_end":
+            continue
+        usage = event.get("usage") or {}
+        seen = True
+        totals["input"] += usage.get("inputTokens", 0)
+        totals["output"] += usage.get("outputTokens", 0)
+        totals["cache_read"] += usage.get("cacheReadTokens", 0)
+        totals["cache_write"] += usage.get("cacheWriteTokens", 0)
+    return totals if seen else None
+
+
 def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
     """A previsão do salto: a mediana de todas as medidas do mesmo lado, a partir de três. Antes, sem base."""
     if hop_logs is None or not (hop_logs / "index.jsonl").exists():
@@ -247,7 +267,8 @@ def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
 
 
 def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, reason: str,
-               log_path: Path | None, passos: int | None = None, previsto: float | None = None) -> None:
+               log_path: Path | None, passos: int | None = None, previsto: float | None = None,
+               tokens: dict | None = None) -> None:
     """Uma linha por salto: rodada, alvo, motivo, caminho do log, e os passos contra a previsão."""
     if hop_logs is None:
         return
@@ -256,9 +277,16 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "responder": plan["responder"],
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
-             "passos": passos, "previsto": previsto}
+             "passos": passos, "previsto": previsto, "tokens": tokens}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
+
+
+def tokens_from(output: dict | None) -> dict | None:
+    """Os tokens do salto a partir da saída que o dispatch devolveu."""
+    if not output or "stdout" not in output:
+        return None
+    return tokens_of(output.get("stdout") or "")
 
 
 def passos_of(output: dict | None) -> int | None:
@@ -441,7 +469,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         else:
             note("disparo falhou: %s (alvo %s, gatilho %s): %s" % (plan["responder"], target, trigger["name"], why))
             record_hop(hop_logs, plan, trigger, "falha-de-salto", why, log_path,
-                       passos=passos_of(output), previsto=previsto)
+                       passos=passos_of(output), previsto=previsto, tokens=tokens_from(output))
             result.update(action="failed", reason=why, line=plan["line"], responder=plan["responder"])
         return result
 
@@ -453,7 +481,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         note("sem resposta: o salto saiu com 0 e nao gravou %s (gatilho %s); aviso, sem nova tentativa"
              % (target, trigger["name"]))
         record_hop(hop_logs, plan, trigger, "sem-resposta", "", log_path,
-                   passos=passos_of(output), previsto=previsto)
+                   passos=passos_of(output), previsto=previsto, tokens=tokens_from(output))
         save_now()
         result.update(action="no-answer", reason="sem-resposta", line=plan["line"], responder=plan["responder"])
         return result
@@ -468,7 +496,8 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         note("aviso no stderr do lado cc: %s" % line[:200])
 
     passos = passos_of(output)
-    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto)
+    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto,
+               tokens=tokens_from(output))
     if passos is not None and previsto is not None and passos > 2 * previsto:
         note("salto %s: %d passos, previsto %g: fora do previsto" % (target, passos, previsto))
     chain["count"] += 1
@@ -497,13 +526,9 @@ def start_new_series(state_path: Path, reviews: Path) -> tuple[int, str]:
     return 0, "serie nova: estado anterior arquivado em %s" % archived
 
 
-def monitor_alive(state: dict) -> bool:
-    """O monitor está vivo se o marcador existe e o pid responde; marcador preso não conta."""
-    marker = state.get("monitor")
-    if not marker:
-        return False
+def pid_alive(pid: int) -> bool:
     try:
-        os.kill(marker["pid"], 0)
+        os.kill(pid, 0)
     except ProcessLookupError:
         return False
     except PermissionError:
@@ -511,14 +536,66 @@ def monitor_alive(state: dict) -> bool:
     return True
 
 
+def monitor_alive(state: dict) -> bool:
+    """O monitor está vivo se o marcador existe e o pid responde; marcador preso não conta."""
+    marker = state.get("monitor")
+    return bool(marker) and pid_alive(marker["pid"])
+
+
+def acquire_lock(lock: Path) -> bool:
+    """Trava de criação exclusiva: o segundo monitor falha aqui, antes de tocar no estado.
+
+    Uma trava de pid morto é retomada; uma de pid vivo recusa.
+    """
+    for _ in range(2):
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:
+                holder = int(lock.read_text(encoding="utf-8").strip())
+            except (OSError, ValueError):
+                holder = None
+            if holder is not None and pid_alive(holder):
+                return False
+            lock.unlink(missing_ok=True)
+            continue
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(str(os.getpid()))
+        return True
+    return False
+
+
+def release_lock(lock: Path) -> None:
+    """Sai com a trava só quando ela é do próprio processo."""
+    try:
+        if lock.read_text(encoding="utf-8").strip() == str(os.getpid()):
+            lock.unlink()
+    except OSError:
+        pass
+
+
 def watch(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str = DSH_BIN,
           timeout: int = TIMEOUT, interval: float = POLL_SECONDS, max_ticks: int | None = None,
-          sleep=time.sleep) -> int:
+          sleep=time.sleep, lock_path: Path | None = None) -> int:
     """O monitor: consulta a pasta, e processa quando ela ficou igual numa consulta.
 
     Um salto por vez: a passada é síncrona, e a consulta seguinte só acontece depois dela.
     Um rascunho pendente (0000) mantém a passada rodando, para o P-d contar o tempo.
+    A trava de criação exclusiva é tomada antes de qualquer leitura do estado.
     """
+    lock = lock_path or state_path.parent / "monitor.lock"
+    if not acquire_lock(lock):
+        print("monitor ativo: outra trava segura %s; nada foi lido nem gravado" % lock.name)
+        return 1
+    try:
+        return _watch_loop(reviews, state_path, hop_logs, dsh_bin=dsh_bin, timeout=timeout,
+                           interval=interval, max_ticks=max_ticks, sleep=sleep)
+    finally:
+        release_lock(lock)
+
+
+def _watch_loop(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str, timeout: int,
+                interval: float, max_ticks: int | None, sleep) -> int:
     marker = {"pid": os.getpid(), "since": time.strftime("%Y-%m-%dT%H:%M:%S")}
     state = load_state(state_path)
     state["monitor"] = marker

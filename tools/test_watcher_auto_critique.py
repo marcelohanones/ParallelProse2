@@ -768,6 +768,55 @@ class WatcherTests(unittest.TestCase):
         self.run_monitor(2, on_tick, self.root / "hops")
         self.assertEqual(w.load_state(self.state_path).get("monitor", {}).get("pid"), other)
 
+    def steps_with_usage_probe(self):
+        """Um dsh falso que imprime step_start e step_end com usage, e grava a resposta."""
+        probe = self.root / "dsh-usage"
+        lines = [
+            '{"type":"status","phase":"step_start","turn":1,"step":1}',
+            '{"type":"status","phase":"step_end","turn":1,"step":1,"usage":{"inputTokens":10,'
+            '"outputTokens":3,"cacheReadTokens":5,"cacheWriteTokens":0,"totalTokens":18}}',
+            '{"type":"status","phase":"step_start","turn":1,"step":2}',
+            '{"type":"status","phase":"step_end","turn":1,"step":2,"usage":{"inputTokens":7,'
+            '"outputTokens":4,"cacheReadTokens":2,"cacheWriteTokens":1,"totalTokens":14}}',
+        ]
+        probe.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "sys.stdout.write(%r)\n"
+            "open(%r, 'w').write('<!-- sent: 1 palavras -->\\n')\n"
+            % ("\n".join(lines) + "\n", str(self.reviews / "R2-dsh.md")), encoding="utf-8")
+        probe.chmod(0o755)
+        return probe
+
+    def test_tokens_of_a_hop_are_summed_from_the_step_end_events(self):
+        # 3.3 da R13-dsh: a soma dos quatro campos de usage, nos step_end, gravada no índice
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        hops = self.root / "hops"
+        result = self.run_pass(dsh_bin=str(self.steps_with_usage_probe()), hop_logs=hops)
+        self.assertEqual(result["action"], "dispatch")
+        entry = [json.loads(line) for line in (hops / "index.jsonl").read_text().splitlines()][-1]
+        self.assertEqual(entry["tokens"], {"input": 17, "output": 7, "cache_read": 7, "cache_write": 1})
+
+    def test_tokens_are_none_without_usage(self):
+        self.assertIsNone(w.tokens_of('{"type":"status","phase":"step_start"}\n'))
+
+    def test_a_live_lock_refuses_a_second_monitor(self):
+        # 3.4 da R13-dsh: uma trava viva recusa o monitor, antes de qualquer leitura do estado
+        (self.root / "monitor.lock").write_text(str(os.getppid()), encoding="utf-8")
+        code = w.watch(self.reviews, self.state_path, self.root / "hops", max_ticks=1, sleep=lambda _: None,
+                       lock_path=self.root / "monitor.lock")
+        self.assertEqual(code, 1)
+        self.assertTrue((self.root / "monitor.lock").exists(), "a trava de outro não é removida")
+
+    def test_a_dead_lock_is_taken_over_and_removed_on_exit(self):
+        lock = self.root / "monitor.lock"
+        lock.write_text("999999", encoding="utf-8")
+        code = w.watch(self.reviews, self.state_path, self.root / "hops", max_ticks=1, sleep=lambda _: None,
+                       lock_path=lock)
+        self.assertEqual(code, 0)
+        self.assertFalse(lock.exists(), "a trava própria sai na saída")
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2

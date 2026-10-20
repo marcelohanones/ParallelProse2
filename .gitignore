@@ -29,3 +29,4 @@ tools/.watcher-hops/
 
 # Claude Code machine-local settings (hook config carries absolute store paths)
 .claude/settings.local.json
+tools/monitor.lock
