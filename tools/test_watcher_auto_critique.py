@@ -851,7 +851,7 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(result["action"], "refuse")
         self.assertFalse(self.log.exists(), "o dsh não foi chamado")
 
-    def test_index_records_the_effective_mode_of_a_dsh_hop(self):
+    def test_index_records_the_fixed_mode_of_a_dsh_hop(self):
         self.baseline()
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         hops = self.root / "hops"
