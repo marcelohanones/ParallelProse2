@@ -297,6 +297,24 @@ class CheckerTests(unittest.TestCase):
         self.assertEqual(label, "historico")
         self.assertEqual(reported, [("sent", "x")])
 
+    def test_addendum_unnamed_by_any_opening_is_reported(self):
+        # O relato e da pasta, nao de um arquivo: o adendo existe e nenhuma
+        # abertura o nomeia. Nunca e recusa, porque qual mensagem devia
+        # responde-lo e sentido.
+        self.target()
+        self.subject()  # a abertura nomeia so o alvo
+        addendum = self.dir / "R90-cc-log-de-execucao.md"
+        build(addendum, checador=TARGET + " \u2014 0 achado(s)")
+        self.assertEqual(chk.unnamed_addenda(), ["R90-cc-log-de-execucao.md"])
+        self.assertEqual(chk.analyze(addendum), [])
+
+    def test_addendum_named_by_an_opening_is_not_reported(self):
+        self.target()
+        addendum = self.dir / "R90-cc-log-de-execucao.md"
+        build(addendum, checador=TARGET + " \u2014 0 achado(s)")
+        self.subject(opening="Segue as mensagens `" + TARGET + "` e `R90-cc-log-de-execucao.md`.")
+        self.assertEqual(chk.unnamed_addenda(), [])
+
 
 class ContractStepFourCommand(unittest.TestCase):
     """T15: o comando do passo 4 troca o número no cabeçalho e no rodapé, sem tocar no corpo.

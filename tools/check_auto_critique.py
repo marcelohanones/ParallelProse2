@@ -16,6 +16,11 @@ The six items below are the contract's verification section, in its order:
      that file's own findings                                   -> "checador"
   6. the file cited in that key is named in the opening line     -> "opening"
 
+Separately, it reports addenda that no opening line names. That report is
+registry-level and never fails a file: which message owed the addendum a
+response is sense, and the `checador:` key counts findings on the file a
+message answers.
+
 The form rules apply from the round the contract's Vigencia names, and the
 checador key from the later round it names. Those two numbers live only in the
 constants below, and a test reads them back from the contract: never restate
@@ -320,6 +325,29 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
     return deduped
 
 
+def unnamed_addenda(reviews: Path | None = None) -> list[str]:
+    """Addenda in the folder that no opening line names, in folder order.
+
+    The fact is mechanical: an addendum has its own name shape and sits in the
+    folder. Which message owed it a response is sense, so this report is
+    registry-level and never fails a file; it stays out of any `checador:` key,
+    which counts findings on the file a message answers.
+    """
+    root = reviews or REVIEWS
+    named: set[str] = set()
+    addenda: list[str] = []
+    for path in sorted(root.rglob("*.md")):
+        match = FILE_RE.match(path.name)
+        if not match:
+            continue
+        if match.group(3):
+            addenda.append(path.name)
+        line = opening_line(path.read_text(encoding="utf-8").splitlines())
+        if line and OPENING_RE.match(line):
+            named.update(re.findall(r"[\w.-]+\.md", line))
+    return [name for name in addenda if name not in named]
+
+
 def classify(round_no: int, findings: list[tuple[str, str]], named: set[str]) -> tuple[str, list[tuple[str, str]]]:
     """Return (label, findings to report or fail on)."""
     if round_no < FIRST_ENFORCED_ROUND:
@@ -354,6 +382,9 @@ def main() -> int:
         detail = "; ".join("%s: %s" % f for f in reported) or "-"
         rows.append("%-22s %-12s %s" % (path.name, label, detail))
     print("\n".join(rows))
+    unnamed = unnamed_addenda()
+    if unnamed:
+        print("\n" + "\n".join("adendo que nenhuma abertura nomeia: %s" % name for name in unnamed))
     print("\n%d ok, %d excecao(oes), %d historico, %d falha(s)" % (ok, excepted, history, failed))
     return 2 if failed else 0
 
