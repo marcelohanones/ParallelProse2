@@ -39,11 +39,13 @@ STATE = ROOT / "tools" / ".watcher-state.json"
 HOP_LOGS = ROOT / "tools" / ".watcher-hops"
 DSH_BIN = "dsh"
 TIMEOUT = 1800
+PENDING_LIMIT = 15 * 60  # P-d: rascunho com o marcador por mais disso vira aviso
+POLL_SECONDS = 10  # o monitor consulta a pasta a cada dez segundos
 NOTICES_KEPT = 20
-# acrescentado à linha de disparo do dsh: o procedimento da v12 não é opcional, e a
-# investigação do ambiente não é passo de rodada (R15-cc, medido na R15-dsh)
-PROCEDURE_NOTE = (" Siga o procedimento de rodada da v12 (sete passos): leitura em lote, "
-                  "escrita única, contagem única, checador no fim. Não investigue o ambiente.")
+# acrescentado à linha de disparo, nos dois lados: aponta o procedimento do contrato em vez de
+# copiá-lo, para não envelhecer; e a investigação do ambiente não é passo de rodada
+PROCEDURE_NOTE = (" Siga o procedimento de rodada de docs/auto_critique2.md (sete passos). "
+                  "Não investigue o ambiente.")
 
 
 def new_state() -> dict:
@@ -64,7 +66,9 @@ def load_state(path: Path) -> dict:
     if path.exists():
         loaded = json.loads(path.read_text(encoding="utf-8"))
         state.update(loaded)
-        state["chain"] = {**new_state()["chain"], **loaded.get("chain", {})}
+        # só os campos que o contrato conhece: resíduo de versões antigas sai na gravação
+        chain = loaded.get("chain", {})
+        state["chain"] = {key: chain.get(key, default) for key, default in new_state()["chain"].items()}
     return state
 
 
@@ -73,6 +77,11 @@ def save_state(path: Path, state: dict) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     tmp.write_text(json.dumps(state, indent=2, ensure_ascii=False) + chr(10), encoding="utf-8")
     os.replace(tmp, path)
+
+
+def in_writing(path: Path) -> bool:
+    """Rascunho: o cabeçalho ainda traz o marcador 0000, e a escrita do autor não terminou."""
+    return bool(re.search(r"^<!-- sent: 0000\b", path.read_text(encoding="utf-8"), re.M))
 
 
 def sha256(path: Path) -> str:
@@ -95,7 +104,35 @@ def scan(reviews: Path) -> list[dict]:
             "suffix": suffix,
             "sha": sha256(path),
         })
+    entries.sort(key=lambda e: (e["round"], e["side"]))  # por número de rodada, não pelo texto do nome
     return entries
+
+
+def cited_names(path: Path) -> set[str]:
+    """Os arquivos que a abertura cita: a linha "Segue a mensagem ..." da rodada."""
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("Segue "):
+            return set(re.findall(r"R\d+-[a-z]+\.md", line))
+    return set()
+
+
+def pair_trigger(turns: list[dict]) -> dict | None:
+    """Dois turnos da mesma rodada, de lados diferentes: o último é o que cita o outro.
+
+    Sem citação, ou com citação mútua, não há último: devolve None e ninguém dispara.
+    """
+    if len(turns) != 2:
+        return None
+    first, second = turns
+    if first["round"] != second["round"] or first["side"] == second["side"]:
+        return None
+    first_cites_second = second["name"] in cited_names(first["path"])
+    second_cites_first = first["name"] in cited_names(second["path"])
+    if first_cites_second and not second_cites_first:
+        return first
+    if second_cites_first and not first_cites_second:
+        return second
+    return None
 
 
 def sides_of(entries: list[dict], round_no: int) -> set[str]:
@@ -178,6 +215,60 @@ def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int,
     return ok, reason, argv, output
 
 
+def count_steps(stdout: str) -> int | None:
+    """Passos de modelo do salto: os eventos step_start do stdout JSON. Texto puro é sem base."""
+    count, saw_json = 0, False
+    for line in stdout.splitlines():
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        saw_json = True
+        if event.get("phase") == "step_start":
+            count += 1
+    return count if saw_json else None
+
+
+def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
+    """A previsão do salto: a mediana dos passos medidos do mesmo lado. Sem três medidas, sem base."""
+    if hop_logs is None or not (hop_logs / "index.jsonl").exists():
+        return None
+    measured = []
+    for line in (hop_logs / "index.jsonl").read_text(encoding="utf-8").splitlines():
+        entry = json.loads(line)
+        if entry.get("responder") == responder and entry.get("passos") is not None:
+            measured.append(entry["passos"])
+    if len(measured) < 3:
+        return None
+    measured.sort()
+    middle = len(measured) // 2
+    if len(measured) % 2:
+        return measured[middle]
+    return (measured[middle - 1] + measured[middle]) / 2
+
+
+def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, reason: str,
+               log_path: Path | None, passos: int | None = None, previsto: float | None = None) -> None:
+    """Uma linha por salto: rodada, alvo, motivo, caminho do log, e os passos contra a previsão."""
+    if hop_logs is None:
+        return
+    hop_logs.mkdir(parents=True, exist_ok=True)
+    entry = {"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "round": plan["round"],
+             "responder": plan["responder"],
+             "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
+             "status": status, "reason": reason, "log": str(log_path) if log_path else None,
+             "passos": passos, "previsto": previsto}
+    with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
+
+
+def passos_of(output: dict | None) -> int | None:
+    """Os passos do salto a partir da saída que o dispatch devolveu; sem saída, sem base."""
+    if not output or "stdout" not in output:
+        return None
+    return count_steps(output.get("stdout") or "")
+
+
 def write_hop_log(log_dir: Path, trigger: dict, plan: dict, output: dict) -> Path:
     """Guarda a saída do salto fora do registro: reconciliação sem mensagem nova."""
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -209,12 +300,19 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
 
     entries = scan(reviews)
     seen = state["seen"]
+    stale = state.pop("disparando", None)  # um salto que não voltou: o processo caiu durante ele
+    if stale and hop_logs is not None and not dry_run:
+        record_hop(hop_logs, stale, {"name": stale["trigger"]}, "salto-interrompido",
+                   "o processo caiu durante o salto; olhar humano", None)
     result = {"action": "idle", "reason": "", "line": "", "responder": "", "notices": []}
 
     def note(text: str) -> None:
         result["notices"].append(text)
         state["notices"] = (state["notices"] + [text])[-NOTICES_KEPT:]
 
+    if stale:
+        note("salto interrompido: %s (gatilho %s); olhar humano, sem novo disparo" % (
+            stale["target"], stale["trigger"]))
     new = [e for e in entries if e["name"] not in seen]
     changed = [e for e in entries if e["name"] in seen and seen[e["name"]] != e["sha"]]
     gone = [name for name in seen if name not in {e["name"] for e in entries}]
@@ -235,16 +333,38 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         del seen[name]
         note("arquivo saiu do registro: %s" % name)
 
+    # adendo não abre nem fecha rodada: é marcado e avisado, e não conta para o par
+    addenda = [e for e in new if e["suffix"] is not None]
+    for entry in addenda:
+        seen[entry["name"]] = entry["sha"]
+        note("adendo %s: não abre nem fecha rodada, e não dispara" % entry["name"])
     turns = [e for e in new if e["suffix"] is None]
+    # rascunho (cabeçalho ainda com 0000) não é turno: espera, e não entra em seen
+    drafts = {e["name"] for e in turns if in_writing(e["path"])}
+    turns = [e for e in turns if e["name"] not in drafts]
+    waiting = state.get("pending", {})
+    state["pending"] = {name: waiting.get(name, {"since": time.time(), "warned": False}) for name in drafts}
+    for name in drafts:
+        entry = state["pending"][name]
+        if not entry["warned"] and time.time() - entry["since"] > PENDING_LIMIT:
+            entry["warned"] = True
+            note("%s segue em 0000 há mais de 15 min: aviso, não FALHA" % name)
     if not turns:
-        result["action"] = "notice" if (changed or gone) else "idle"
+        result["action"] = "pending" if drafts else ("notice" if (changed or gone or addenda) else "idle")
         return result
     if len(turns) > 1:
+        # o par que chega junto colapsa no último escritor, pela citação; o resto não dispara
+        trigger_pair = pair_trigger(turns)
+        if trigger_pair is None:
+            for entry in turns:
+                seen[entry["name"]] = entry["sha"]
+            note("mais de um arquivo novo (%s); o watcher nao escolhe" % ", ".join(e["name"] for e in turns))
+            result["action"] = "ambiguous"
+            return result
         for entry in turns:
-            seen[entry["name"]] = entry["sha"]
-        note("mais de um arquivo novo (%s); o watcher nao escolhe" % ", ".join(e["name"] for e in turns))
-        result["action"] = "ambiguous"
-        return result
+            if entry is not trigger_pair:
+                seen[entry["name"]] = entry["sha"]
+        turns = [trigger_pair]
 
     trigger = turns[0]
     chk.REVIEWS = reviews  # a chave do checador resolve contra o mesmo registro
@@ -258,7 +378,6 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
     keys = chk.gate_keys(trigger["path"])
     header = chk.header_keys(trigger["path"])
     seen[trigger["name"]] = trigger["sha"]
-    save_now()  # antes de qualquer decisao: um salto interrompido nao volta
     chain = state["chain"]
 
     if label == "FALHA":
@@ -301,17 +420,39 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
 
     hop = "R%d-%s" % (plan["round"], plan["responder"])
     target = hop + ".md"
+    # a marca em seen e o registro do salto vão na mesma gravação, antes do subprocesso:
+    # separadas, uma queda entre as duas perderia o arquivo sem aviso
+    previsto = predicted_steps(hop_logs, plan["responder"])  # declarada antes do disparo
+    state["disparando"] = {"hop": hop, "round": plan["round"], "responder": plan["responder"],
+                           "trigger": trigger["name"], "target": target, "previsto": previsto,
+                           "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    save_now()
     ok, why, argv, output = dispatch(plan["responder"], plan["line"], state, dsh_bin, timeout,
                                      target, hop)
-    if hop_logs is not None and output:
-        write_hop_log(hop_logs, trigger, plan, output)
+    state.pop("disparando", None)  # o salto voltou: não é mais um salto em curso
+    log_path = write_hop_log(hop_logs, trigger, plan, output) if (hop_logs is not None and output) else None
     if not ok:
         if argv is None:  # lado sem comando configurado: recusa, nao tentativa falha
             note("nao disparo: %s" % why)
             result.update(action="refuse", reason="comando", line=plan["line"], responder=plan["responder"])
         else:
-            note("disparo falhou (%s): %s" % (plan["responder"], why))
+            note("disparo falhou: %s (alvo %s, gatilho %s): %s" % (plan["responder"], target, trigger["name"], why))
+            record_hop(hop_logs, plan, trigger, "falha-de-salto", why, log_path,
+                       passos=passos_of(output), previsto=previsto)
             result.update(action="failed", reason=why, line=plan["line"], responder=plan["responder"])
+        return result
+
+    # o salto saiu com 0: a resposta tem de estar no registro ao fim. Se não está, o salto
+    # rodou (conta), é registrado e avisado, e não é repetido: um lado escreve uma vez por número
+    if target not in {e["name"] for e in scan(reviews)}:
+        chain["count"] += 1
+        chain["last_hop"] = {"round": trigger["round"], "trigger": trigger["name"], "responder": plan["responder"]}
+        note("sem resposta: o salto saiu com 0 e nao gravou %s (gatilho %s); aviso, sem nova tentativa"
+             % (target, trigger["name"]))
+        record_hop(hop_logs, plan, trigger, "sem-resposta", "", log_path,
+                   passos=passos_of(output), previsto=previsto)
+        save_now()
+        result.update(action="no-answer", reason="sem-resposta", line=plan["line"], responder=plan["responder"])
         return result
 
     # A frase de regra de arquivo nao casada vem com returncode 0. Se ficasse so
@@ -323,12 +464,68 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         line = next((text.strip() for text in stderr.splitlines() if warning in text), "")
         note("aviso no stderr do lado cc: %s" % line[:200])
 
+    passos = passos_of(output)
+    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto)
+    if passos is not None and previsto is not None and passos > 2 * previsto:
+        note("salto %s: %d passos, previsto %g: fora do previsto" % (target, passos, previsto))
     chain["count"] += 1
     chain["last_hop"] = {"round": trigger["round"], "trigger": trigger["name"], "responder": plan["responder"]}
     save_now()
     note("salto %d: %s -> %s" % (chain["count"], trigger["name"], plan["line"]))
     result.update(action="dispatch", line=plan["line"], responder=plan["responder"], argv=argv)
     return result
+
+
+def start_new_series(state_path: Path, reviews: Path) -> tuple[int, str]:
+    """Abre uma série nova: o registro tem de estar vazio, e o estado anterior vai para o arquivo."""
+    leftover = scan(reviews)
+    if leftover:
+        return 1, "nao abro a serie: o registro tem %d arquivo(s); apague a serie anterior antes" % len(leftover)
+    archive_dir = state_path.parent / ".watcher-series"
+    archive_dir.mkdir(parents=True, exist_ok=True)
+    archived = archive_dir / ("estado-%s.json" % time.strftime("%Y%m%d-%H%M%S"))
+    if state_path.exists():
+        archived.write_text(state_path.read_text(encoding="utf-8"), encoding="utf-8")
+    fresh = new_state()
+    fresh["cc_argv"] = load_state(state_path).get("cc_argv")
+    fresh["initialized"] = True  # registro vazio é a linha de base: qualquer arquivo depois dela é novo
+    fresh["notices"] = ["serie nova: estado anterior em %s" % archived.name]
+    save_state(state_path, fresh)
+    return 0, "serie nova: estado anterior arquivado em %s" % archived
+
+
+def watch(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str = DSH_BIN,
+          timeout: int = TIMEOUT, interval: float = POLL_SECONDS, max_ticks: int | None = None,
+          sleep=time.sleep) -> int:
+    """O monitor: consulta a pasta, e processa quando ela ficou igual numa consulta.
+
+    Um salto por vez: a passada é síncrona, e a consulta seguinte só acontece depois dela.
+    Um rascunho pendente (0000) mantém a passada rodando, para o P-d contar o tempo.
+    """
+    state = load_state(state_path)
+    state["monitor"] = {"pid": os.getpid(), "since": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    save_state(state_path, state)
+    previous = processed = None
+    tick = 0
+    try:
+        while max_ticks is None or tick < max_ticks:
+            snapshot = {e["name"]: e["sha"] for e in scan(reviews)}
+            stable = snapshot == previous
+            if stable and (snapshot != processed or state.get("pending")):
+                result = run_pass(reviews, state, dsh_bin=dsh_bin, timeout=timeout, hop_logs=hop_logs,
+                                  persist=lambda current: save_state(state_path, current))
+                save_state(state_path, state)
+                for line in result["notices"]:
+                    print(line, flush=True)
+                processed = snapshot
+            previous = snapshot
+            tick += 1
+            sleep(interval)
+    finally:
+        state = load_state(state_path)
+        state.pop("monitor", None)
+        save_state(state_path, state)
+    return 0
 
 
 def parse_args(argv=None):
@@ -341,6 +538,8 @@ def parse_args(argv=None):
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--status", action="store_true")
+    parser.add_argument("--new-series", action="store_true")
+    parser.add_argument("--monitor", action="store_true")
     parser.add_argument("--set-cc-cmd")
     return parser.parse_args(argv)
 
@@ -358,6 +557,17 @@ def main(argv=None) -> int:
             print("ultimo salto: %s" % chain["last_hop"])
         for line in state["notices"][-5:]:
             print("  " + line)
+        monitor = state.get("monitor")
+        if monitor:
+            print("monitor ativo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
+        index = Path(args.hop_logs) / "index.jsonl"
+        if index.exists():
+            for line in index.read_text(encoding="utf-8").splitlines()[-5:]:
+                entry = json.loads(line)
+                label = "salto" if entry["status"] == "salto" else "falha"
+                print("  %s: %s (%s), gatilho %s, passos %s, previsto %s" % (
+                    label, entry["target"], entry["status"], entry["trigger"],
+                    entry.get("passos"), entry.get("previsto")))
         return 0
 
     if args.reset:
@@ -369,6 +579,15 @@ def main(argv=None) -> int:
         save_state(state_path, state)
         print("contador zerado: o Markim disparou a mao")
         return 0
+
+    if args.monitor:
+        return watch(Path(args.reviews), state_path, Path(args.hop_logs), dsh_bin=args.dsh_bin,
+                     timeout=args.timeout)
+
+    if args.new_series:
+        code, message = start_new_series(state_path, Path(args.reviews))
+        print(message)
+        return code
 
     if args.set_cc_cmd:
         state["cc_argv"] = shlex.split(args.set_cc_cmd)
@@ -386,7 +605,7 @@ def main(argv=None) -> int:
         print("nada novo no registro")
     if not args.dry_run:
         save_state(state_path, state)
-    return 1 if result["action"] in ("refuse", "failed", "error") else 0
+    return 1 if result["action"] in ("refuse", "failed", "error", "no-answer") else 0
 
 
 if __name__ == "__main__":

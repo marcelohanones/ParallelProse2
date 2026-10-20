@@ -1,6 +1,6 @@
 # Contrato da troca automatizada — ParallelProse2
 
-**Versão 20 — 2026-10-19.** Escrito por DSH. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
+**Versão 22 — 2026-10-19.** Escrito por DSH. A v22 ancora a regex do passo 4 no começo da linha e dá nome próprio ao contador, `{sent}`: a v21 trocava também a prosa que citasse a chave. O motivo é o item 2 do plano, que o T15 deixou vermelho de propósito até aqui. A v21 acrescenta a reconciliação à lista do watcher, dá à previsão de chamadas a forma sem base, e prende o comando do passo 4 às duas chaves do `sent` — o `sed` global corrompeu a `R1-cc` em quatro trechos. O motivo é o item 1 do plano da `R3-cc`. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
 
 ## O cenário
 
@@ -70,6 +70,8 @@ O que segura a cadeia não é um número, é o gate: arquivo com pergunta em abe
 
 Antes do disparo, o watcher declara quantas chamadas o salto deve fazer. Depois, a reconciliação lê o log de sessão e compara com as que foram feitas. Um salto que faz o dobro das previstas está fora do previsto, mesmo que as chamadas tenham saído baratas.
 
+**A previsão tem duas formas.** O número, quando há base medida; **"sem base, primeira medição"**, quando não há — e aí a reconciliação cria a base, em vez de comparar com uma inventada.
+
 **Os dois lados fazem chamadas; só um cobra por token.** Hoje o dsh cobra, e o cc roda na assinatura do plano Pro, informada pelo Markim em 2026-10-19 — mas a previsão de chamadas vale para os dois, porque é ela que diz o tamanho do salto. O custo em tokens fica registrado como consequência, e não é o que se estima.
 
 ## O watcher
@@ -81,6 +83,7 @@ Ele é a única peça que faz o cenário acontecer, e o que ele faz é isto, nes
 3. **Decide**: gate sem pergunta em aberto, dispara o outro lado; gate com pergunta, não dispara, e avisa no chat do Markim.
 4. **Dispara** o outro harness com a linha de disparo.
 5. **Conta** o salto na cadeia.
+6. **Reconcilia o salto**: lê os eventos do `--json` no stdout do salto — o log de sessão que o hop guarda —, conta as chamadas e grava a contagem por rodada.
 
 Ele **nunca escreve no registro** e **nunca responde por um harness**. Se ele parar, a troca volta a ser manual — é para isso que serve a transição.
 
@@ -221,7 +224,7 @@ Um salto segue sete passos, nesta ordem, do lado dsh e do lado cc. Cada passo no
 1. **Leitura em lote.** Lê, numa única mensagem, o contrato, o arquivo que a linha de disparo nomeia e a rodada anterior do mesmo par. Executa: três leituras de arquivo em paralelo — `read` do contrato, do arquivo disparado e da rodada anterior —, e não três mensagens.
 2. **Escrita.** Escreve a resposta uma vez, com o cabeçalho em `0000`. Executa: uma escrita de arquivo (`write`) em `docs/reviews/R{n}-{lado}.md`.
 3. **Contagem.** Conta as palavras uma vez. Executa: `LC_ALL=C wc -w docs/reviews/R{n}-{lado}.md`.
-4. **Cabeçalho.** Troca os dois `0000` pelo número contado, com um único comando. Executa: `sed -i '' 's/0000/{n}/g' docs/reviews/R{n}-{lado}.md`.
+4. **Cabeçalho.** Troca o número nas duas linhas que o carregam — a do `sent` no cabeçalho e a do rodapé —, sem tocar no corpo: a regex é ancorada no começo da linha, e o contador chama `{sent}` para não confundir com o `{n}` da rodada. Executa: `sed -i '' -E 's/^(<!-- sent:|- \*\*sent\*\*:)[[:space:]]*0000/\1 {sent}/' docs/reviews/R{n}-{lado}.md`.
 5. **Checador.** Roda o checador no fim, uma vez, sobre o registro inteiro. Executa: `python3 tools/check_auto_critique.py`.
 6. **Suíte.** Roda os testes quando a rodada mexe em código, ou no contrato que os testes leem. Executa: `python3 -m unittest discover -s tools`.
 7. **Ambiente.** Não investiga o ambiente — processos, variáveis de ambiente, `~/.dsh`, sessões, logs de hop — a menos que a rodada peça. Executa: nenhum comando; é a proibição que vale para os seis passos acima.
@@ -278,4 +281,4 @@ Este documento governa a troca entre os dois harnesses, desde 2026-10-19. Nenhum
 
 ## Contagens
 
-- **sent**: 4027 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).
+- **sent**: 4226 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).

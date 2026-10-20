@@ -10,6 +10,9 @@ from __future__ import annotations
 
 import os
 import pathlib
+import re
+import shlex
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -293,6 +296,61 @@ class CheckerTests(unittest.TestCase):
         label, reported = chk.classify(0, [("sent", "x")], set())
         self.assertEqual(label, "historico")
         self.assertEqual(reported, [("sent", "x")])
+
+
+class ContractStepFourCommand(unittest.TestCase):
+    """T15: o comando do passo 4 troca o número no cabeçalho e no rodapé, sem tocar no corpo.
+
+    O comando é lido do contrato, e não copiado: se o contrato mudar, o teste acompanha.
+    """
+
+    ROOT = pathlib.Path(__file__).resolve().parents[1]
+    V20 = "sed -i '' 's/0000/{n}/g' docs/reviews/R{n}-{lado}.md"
+    HEADER = "<!-- sent: 0000 palavras (LC_ALL=C wc -w neste arquivo, cabeçalho incluído) -->"
+    FOOTER = "- **sent**: 0000 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído)."
+    BODY_MARKER = "O passo 4 troca `0000` pelo número, e este corpo não muda."
+    BODY_PROSE = "sent: 0000 palavras aparece aqui como prosa, numa linha que não é cabeçalho."
+
+    def contract_command(self):
+        text = (self.ROOT / "docs" / "auto_critique2.md").read_text(encoding="utf-8")
+        step = next(line for line in text.splitlines() if "**Cabeçalho.**" in line)
+        return re.search(r"Executa: `(sed [^`]+)`", step).group(1)
+
+    def run_step_four(self, template, token):
+        # token: o nome do placeholder do contador no comando, lido do próprio comando
+        body = "\n".join(["# R9 — exemplo", "", self.BODY_MARKER, "", self.BODY_PROSE, ""])
+        text = self.HEADER + "\n" + body + "\n## Contagens\n\n" + self.FOOTER + "\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            path = pathlib.Path(tmp) / "R9-cc.md"
+            path.write_text(text, encoding="utf-8")
+            cmd = template.replace("docs/reviews/R{n}-{lado}.md", str(path))
+            cmd = cmd.replace("{%s}" % token, "1234")
+            subprocess.run(shlex.split(cmd), check=True, capture_output=True)
+            return path.read_text(encoding="utf-8").splitlines()
+
+    def run_contract_command(self):
+        command = self.contract_command()
+        token = re.search(r"\\1 \{(\w+)\}", command).group(1)
+        return self.run_step_four(command, token)
+
+    def test_header_and_footer_get_the_count(self):
+        lines = self.run_contract_command()
+        self.assertEqual(lines[0], self.HEADER.replace("0000", "1234"))
+        self.assertIn("- **sent**: 1234 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).", lines)
+
+    def test_marker_in_backticks_survives(self):
+        lines = self.run_contract_command()
+        self.assertIn(self.BODY_MARKER, lines)
+
+    def test_key_quoted_in_prose_survives(self):
+        lines = self.run_contract_command()
+        self.assertIn(self.BODY_PROSE, lines)
+
+    def test_control_v20_command_does_touch_the_body(self):
+        # controle: a v20 troca o marcador em qualquer lugar; se ela não tocasse o corpo,
+        # o fixture não estaria provando nada
+        lines = self.run_step_four(self.V20, "n")
+        self.assertNotIn(self.BODY_MARKER, lines)
 
 
 if __name__ == "__main__":
