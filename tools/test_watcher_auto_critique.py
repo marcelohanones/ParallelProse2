@@ -747,6 +747,27 @@ class WatcherTests(unittest.TestCase):
         self.run_pass()
         self.assertNotIn("ambiguous", self.state)
 
+    def test_second_monitor_is_refused_while_one_is_alive(self):
+        # 1.1 da R8-dsh: um segundo --monitor não sobe com o primeiro vivo
+        self.state["monitor"] = {"pid": os.getpid(), "since": "agora"}
+        w.save_state(self.state_path, self.state)
+        code = w.main(["--state", str(self.state_path), "--reviews", str(self.reviews),
+                       "--hop-logs", str(self.root / "hops"), "--monitor"])
+        self.assertEqual(code, 1)
+
+    def test_a_monitor_clears_only_its_own_marker(self):
+        # 1.1: o marcador de outro monitor sobrevive à saída deste
+        self.prepare_monitor()
+        other = os.getppid()
+
+        def on_tick():
+            state = w.load_state(self.state_path)
+            state["monitor"] = {"pid": other, "since": "outro"}
+            w.save_state(self.state_path, state)
+
+        self.run_monitor(2, on_tick, self.root / "hops")
+        self.assertEqual(w.load_state(self.state_path).get("monitor", {}).get("pid"), other)
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2

@@ -229,7 +229,7 @@ def count_steps(stdout: str) -> int | None:
 
 
 def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
-    """A previsão do salto: a mediana dos passos medidos do mesmo lado. Sem três medidas, sem base."""
+    """A previsão do salto: a mediana de todas as medidas do mesmo lado, a partir de três. Antes, sem base."""
     if hop_logs is None or not (hop_logs / "index.jsonl").exists():
         return None
     measured = []
@@ -542,8 +542,9 @@ def watch(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str = DSH
             sleep(interval)
     finally:
         state = load_state(state_path)
-        state.pop("monitor", None)
-        save_state(state_path, state)
+        if state.get("monitor", {}).get("pid") == os.getpid():  # só apaga o próprio marcador
+            state.pop("monitor")
+            save_state(state_path, state)
     return 0
 
 
@@ -608,6 +609,9 @@ def main(argv=None) -> int:
         return 0
 
     if args.monitor:
+        if monitor_alive(state):
+            print("monitor ativo (pid %s): ja ha um monitor nesta pasta" % state["monitor"]["pid"])
+            return 1
         return watch(Path(args.reviews), state_path, Path(args.hop_logs), dsh_bin=args.dsh_bin,
                      timeout=args.timeout)
 
