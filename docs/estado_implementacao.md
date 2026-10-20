@@ -83,19 +83,30 @@ Ensaiada em 2026-10-20 num diretório temporário, com dsh e cc falsos, do regis
 
 Esta seção não nomeia o `HEAD`: o commit que a carrega é o que a contém, e `git log` é a fonte. A suíte se mede com `python3 -m unittest discover -s tools`; o número sai dela, não desta página.
 
-**Código.** O disparo do dsh roda com o diretório de trabalho em `docs/reviews/`, e o cc na raiz. O preflight aceita só `workspace-write` quando a variável `DSH_PERMISSION_MODE` está definida; sem a variável, não há declaração, e quem decide é o perfil. Cada linha do `index.jsonl` grava o modo declarado do dsh, e `null` para o cc.
+**A automação está fechada em 2026-10-20.** A pasta é o start: um arquivo em `docs/reviews/` dispara o outro lado sem humano, e a cadeia continua. Medido em 26 minutos contínuos — monitor de 14:49:05 a 15:15:11, cinco saltos (`R32-dsh`, `R33-cc`, `R33-dsh`, `R34-cc`, `R34-dsh`), cada um disparando o seguinte em cerca de 20 segundos, sem intervenção.
 
-**Runbook da sequência.** Suba o monitor de um shell sem `DSH_PERMISSION_MODE`, ou com `workspace-write`; qualquer outro valor faz o `preflight` recusar cada disparo do dsh.
+| o que foi provado | como |
+|---|---|
+| a pasta é o start | cinco hops seguidos, e nenhum arquivo escrito à mão entre eles |
+| a cerca de escrita do dsh | `Operation not permitted` numa sonda real (R19) |
+| o modo fixado em `workspace-write` | em toda linha de índice do dsh (D9) |
+| o caminho com pergunta | a `R22` retida sem disparo, liberada depois do `passa` |
+| a política de falha | `salto-interrompido` registrado para o `R31-cc` órfão, sem repetição |
+| o índice | `palavras`, `modo` e `fora_de_reviews` em todas as linhas novas |
+| o registro | checador com 0 falhas ao fim do ensaio; árvore limpa |
 
-**Série.** A série em curso já está aberta, com as rodadas de R1 a R16 no registro. A série antiga está arquivada em `tools/.watcher-series/`.
+**Runbook.** Suba o monitor de um shell sem `DSH_PERMISSION_MODE`, ou com `workspace-write`; qualquer outro valor faz o `preflight` recusar cada disparo do dsh. Uma passada só, sem monitor: `python3 tools/watcher_auto_critique.py`. Para pôr o estado em dia com rodadas escritas à mão: `--adopt`, sempre **antes** de o próximo arquivo aparecer — se ele vier depois, o arquivo é engolido e nada dispara.
 
-**Problema aberto.** A escrita do dsh ficava restrita só pelo cwd da sessão. Isso está resolvido no código por cwd, mas a cerca ainda não foi medida num salto inteiro: falta um salto real com o monitor ligado.
+**A série.** A série em curso está aberta, do `R1` ao último arquivo do registro; a anterior está arquivada em `tools/.watcher-series/`. Esta seção não repete o número de rodadas: ele sai de `ls docs/reviews/R[0-9]*.md | wc -l`, que é onde ele não envelhece.
 
-**Pendências, em ordem.**
-1. Medir a cerca num salto inteiro: depende do ambiente do monitor sem `DSH_PERMISSION_MODE`.
-2. Primeira rodada automática do cc com o item 6, para ver se a permissão `PYTHONDONTWRITEBYTECODE=1` casa com o comando aprovado.
-3. Decidir se o modo é fixado no `dispatch` ou só conferido: decisão do Markim.
-4. Teste da cadeia com pergunta ao Markim (gate `yes`): ainda não aconteceu nesta série.
-5. Falha da suíte que não se reproduziu: sem explicação; volta a ser investigada se aparecer.
+**O que continua aberto, com dono.**
 
-**Como retomar.** Confira `git status` e `git log` antes de religar o monitor. Não religue o monitor sem a medida do item 1.
+1. Uma segunda medida do caminho com pergunta — houve uma, com a `D10`. Sem dono; é barata e pode esperar.
+2. `passos` do lado cc não existe: o `claude -p` não emite JSON de passo, e a previsão do cc é sempre nula. É registro, não defeito — o número não está disponível nesse lado.
+3. O `kill` do monitor deixa o filho órfão, e foi o que perdeu o `R31-cc`. O monitor deve matar o grupo de processos do hop. Dono: cc.
+4. O laço não tem parada própria: enquanto o gate sair `no`, ele continua, e quem para é o Markim.
+5. `fora_de_reviews` mede estado do repositório no fim do salto, não autoria: sujeira anterior ao disparo entra na mesma lista, e `null` é "não medido", não "limpo".
+
+**O que vem depois.** O formato mais estreito da rodada, que o Markim está desenhando para forçar passos definidos. Não toca a máquina: mexe no tamanho e na forma das mensagens, que é onde o custo está — um hop gasta de 30 a 60 mil tokens de saída para gravar cerca de 2 mil palavras.
+
+**Como retomar.** Confira `git status` e `git log`. O monitor começa com `python3 tools/watcher_auto_critique.py --monitor`, e a primeira passada dispara o turno não visto, se houver.
