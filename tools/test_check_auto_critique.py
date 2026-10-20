@@ -315,6 +315,16 @@ class CheckerTests(unittest.TestCase):
         self.subject(opening="Segue as mensagens `" + TARGET + "` e `R90-cc-log-de-execucao.md`.")
         self.assertEqual(chk.unnamed_addenda(), [])
 
+    def test_unnamed_addendum_does_not_change_the_exit_code(self):
+        # o relato da pasta não muda o veredito: main() sai com 0 e imprime a linha do relato
+        self.target()
+        addendum = self.dir / "R90-cc-log-de-execucao.md"
+        build(addendum, checador=TARGET + " \u2014 0 achado(s)")
+        out = []
+        with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
+            code = chk.main()
+        self.assertEqual(code, 0)
+        self.assertTrue(any("R90-cc-log-de-execucao.md" in line for line in out), out)
 
 class ContractStepFourCommand(unittest.TestCase):
     """T15: o comando do passo 4 troca o número no cabeçalho e no rodapé, sem tocar no corpo.

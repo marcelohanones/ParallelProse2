@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Watcher da troca automática — uma execução por chamada, cinco passos.
+"""Watcher da troca automática — uma execução por chamada.
 
   1. reconcilia: lista docs/reviews, compara com o estado, e sabe quem escreveu;
   2. checa: analyze() sobre o arquivo liberado, nunca sobre a pasta;
   3. decide: gate sem pergunta em aberto dispara; com pergunta, não dispara e avisa;
   4. dispara: `dsh --profile headless "<linha>"`, fora do sandbox;
   5. conta: o salto, para relatar; nao ha trava.
+  6. reconcilia o salto: conta os passos no stdout do dsh e grava o índice.
 
 Ele nunca escreve no registro e nunca responde por um harness. O que ele escreve
 é o próprio estado, em tools/.watcher-state.json, fora de docs/reviews.
@@ -44,7 +45,7 @@ POLL_SECONDS = 10  # o monitor consulta a pasta a cada dez segundos
 NOTICES_KEPT = 20
 # acrescentado à linha de disparo, nos dois lados: aponta o procedimento do contrato em vez de
 # copiá-lo, para não envelhecer; e a investigação do ambiente não é passo de rodada
-PROCEDURE_NOTE = (" Siga o procedimento de rodada de docs/auto_critique2.md (sete passos). "
+PROCEDURE_NOTE = (" Siga o procedimento de rodada de docs/auto_critique2.md (sete itens). "
                   "Não investigue o ambiente.")
 
 
@@ -605,7 +606,7 @@ def _watch_loop(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str
 
 
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Watcher da troca automatica (cinco passos, uma passada).")
+    parser = argparse.ArgumentParser(description="Watcher da troca automatica (uma passada).")
     parser.add_argument("--state", default=str(STATE))
     parser.add_argument("--reviews", default=str(REVIEWS))
     parser.add_argument("--hop-logs", default=str(HOP_LOGS))
