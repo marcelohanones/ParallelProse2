@@ -47,8 +47,9 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 - Gate com `yes` e rótulo exige `why-blocking`: sem essa linha, o checador aponta.
 
 **Medições**
-- Três saltos do dsh: 404 s e 64 chamadas; 250 s e 35; 286 s e 33.
-- Um deles: 62.232 tokens de entrada nova, 51.309 de saída, 1,70 milhão de cache lido.
+- Três saltos do dsh: 404 s e 64 `tool_call`; 250 s e 35; 286 s e 33. `tool_call` não é passo de modelo: o passo é o `step_start`.
+- Um deles: 62.232 tokens de entrada nova, 51.309 de saída, 1,70 milhão de cache lido — é o R15, e confere ao token.
+- Sete saltos com `--json`, medidos dos `step_end` em `tools/.watcher-hops/`: 18, 45, 76, 52, 27, 65 e 27 passos, mediana 45; `tool_call` de 27 a 88. Três saltos não têm JSON nenhum (R2, R3 e R4), e os do cc também não: o lado cc não tem base, e agora está medido.
 - Preset do dsh: `workspace-write` é o padrão. Não verificado: o efeito de `DSH_PERMISSION_MODE` sobre o modo efetivo.
 - Permissão do cc: `Edit(docs/reviews/{target})` casou no último salto. Não verificado: `Grep`, `Glob` e as regras com padrão.
 
@@ -56,7 +57,7 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 - **D1, respondida pelo Markim em 2026-10-20:** sem teto. O contador de saltos relata, e não impede disparo. Confirma a Regra 5 do contrato; a linha anterior, que autorizava cinco saltos com dois usados, fica retirada.
 - **D2, respondida em 2026-10-20:** a concordância do Markim com o plano vem depois da revisão do dsh, e não antes. **D3 foi retirada** pelo dsh: era um bloqueio sem default, e o plano executa zero chamadas de API.
 - **O plano dos doze itens** está aceito pelos dois harnesses, com as correções dos itens 5, 6 e 9 e os refinamentos dos itens 1 e 3. O Markim deu o `passa` em 2026-10-20.
-- **O item 1 está feito:** contrato na v21, com a reconciliação como passo 6 do watcher, a previsão sem base e o comando do passo 4 preso às duas chaves do `sent`.
+- **O item 1 está feito:** contrato na v22, com a reconciliação como passo 6 do watcher, a previsão sem base e o comando do passo 4 preso às duas chaves do `sent`.
 
 **Pendente, com quem**
 - **Markim:** a lista de capacidades liberadas para o salto do dsh — o que ele pode ler, escrever e executar. A recomendação medida é manter `workspace-write` para escrita e auditar leitura e shell no watcher sem bloquear.
