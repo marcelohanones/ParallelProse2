@@ -639,7 +639,7 @@ def main(argv=None) -> int:
         if holder is not None:
             print("monitor ativo pela trava (pid %s)" % holder)
         elif monitor:
-            print("monitor marcado, sem processo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
+            print("monitor marcado, sem trava viva (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
         if state.get("ambiguous"):
             print("ambiguidade pendente: %s" % ", ".join(state["ambiguous"]))
         index = Path(args.hop_logs) / "index.jsonl"

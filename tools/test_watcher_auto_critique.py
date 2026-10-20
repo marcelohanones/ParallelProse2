@@ -724,13 +724,13 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(entries[-1]["previsto"], 45)
 
     def test_status_flags_a_monitor_whose_process_is_gone(self):
-        # 5.2: um marcador preso, sem processo, não é anunciado como monitor ativo
+        # 5.2: um marcador preso, sem trava viva, não é anunciado como monitor ativo
         self.state["monitor"] = {"pid": 999999, "since": "antes"}
         w.save_state(self.state_path, self.state)
         out = []
         with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
             w.main(["--state", str(self.state_path), "--status", "--hop-logs", str(self.root / "h")])
-        self.assertTrue(any("sem processo" in line for line in out), out)
+        self.assertTrue(any("sem trava" in line for line in out), out)
         self.assertFalse(any("monitor ativo" in line for line in out), out)
 
     def test_ambiguity_stays_visible_until_the_registry_changes(self):
