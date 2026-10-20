@@ -31,7 +31,7 @@ sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 
 
 def make_round(reviews, name, *, cites=None, to_markim="none", blocks="no", why=None,
-               gap=None, sent_ok=True):
+               why_blocking=None, gap=None, sent_ok=True):
     """A well-formed round file, except where a case asks it not to be."""
     path = pathlib.Path(reviews) / name
     round_no, side = name.split("-")[0], name.split("-")[1].split(".")[0]
@@ -44,6 +44,8 @@ def make_round(reviews, name, *, cites=None, to_markim="none", blocks="no", why=
     lines += ["", "# T", "", "corpo com algumas palavras.", ""]
     lines += ["```critique-gate", "round: " + round_no, "from: " + side,
               "to-markim: " + to_markim, "blocks-advance: " + blocks]
+    if why_blocking:
+        lines.append("why-blocking: " + why_blocking)
     if why:
         lines.append("why-not-blocking: " + why)
     lines += ["```", "", "## Contagens", "", "- **sent**: 0000 palavras"]
@@ -119,12 +121,12 @@ class WatcherTests(unittest.TestCase):
         result = self.run_pass()
         self.assertEqual(result["action"], "dispatch")
         self.assertEqual(self.argv(), ["--profile", "headless", "--json",
-                         "rodada aberta:  leia docs/reviews/R2-cc.md e responda em R2-dsh.md"])
+                         "rodada aberta:  leia docs/reviews/R2-cc.md e responda em R2-dsh.md"
+                         + w.PROCEDURE_NOTE])
         self.assertEqual(self.state["chain"]["count"], 1)
 
     def test_complete_pair_dispatches_the_next_round(self):
         self.baseline()
-        self.state["chain"]["limit"] = 2
         self.state["cc_argv"] = [str(self.fake_cc)]
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         self.run_pass()
@@ -132,7 +134,8 @@ class WatcherTests(unittest.TestCase):
         result = self.run_pass()
         self.assertEqual(result["action"], "dispatch")
         sent = json.loads(self.log_cc.read_text())
-        self.assertEqual(sent, ["par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md"])
+        self.assertEqual(sent, ["par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md"
+                                + w.PROCEDURE_NOTE])
 
     def test_addendum_never_triggers(self):
         self.baseline()
@@ -181,7 +184,8 @@ class WatcherTests(unittest.TestCase):
 
     def test_gate_with_question_holds(self):
         self.baseline()
-        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md", to_markim="M1", blocks="yes")
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md", to_markim="M1", blocks="yes",
+                   why_blocking="sem default: o conjunto de permissoes nao roda o criterio")
         result = self.run_pass()
         self.assertEqual(result["action"], "hold")
         self.assertEqual(result["reason"], "blocks-advance")
@@ -245,7 +249,6 @@ class WatcherTests(unittest.TestCase):
 
     def test_cc_dispatch_does_not_need_the_dsh_home(self):
         self.baseline()
-        self.state["chain"]["limit"] = 2
         self.state["cc_argv"] = [str(self.fake_cc), "-p", "{line}"]
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         self.run_pass()
@@ -263,7 +266,6 @@ class WatcherTests(unittest.TestCase):
 
     def test_cc_side_without_command_refuses(self):
         self.baseline()
-        self.state["chain"]["limit"] = 2
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         self.run_pass()  # dsh responde
         make_round(self.reviews, "R2-dsh.md", cites="R2-cc.md")
@@ -301,56 +303,39 @@ class WatcherTests(unittest.TestCase):
 
     # -- passo 5: contar ------------------------------------------------
 
-    def test_limit_refuses_the_second_hop(self):
+    def test_the_second_hop_dispatches(self):
+        # A Regra 5 diz que o salto nao pede autorizacao: o contador relata,
+        # nao impede. O segundo salto tem de sair.
         self.baseline()
+        self.state["cc_argv"] = [str(self.fake_cc), "-p", "{line}"]
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         self.run_pass()
         first = self.log.read_text()
         make_round(self.reviews, "R2-dsh.md", cites="R2-cc.md")
         result = self.run_pass()
-        self.assertEqual(result["action"], "refuse")
-        self.assertEqual(result["reason"], "trava")
-        self.assertEqual(self.log.read_text(), first, "nao houve segundo disparo")
+        self.assertEqual(result["action"], "dispatch")
+        self.assertTrue(self.log_cc.exists(), "houve segundo disparo, e foi para o lado cc")
+        self.assertEqual(self.log.read_text(), first, "o lado dsh nao foi chamado de novo")
+        self.assertEqual(self.state["chain"]["count"], 2)
+
+    def test_the_counter_only_reports(self):
+        # Nenhuma chave de limite sobrevive no estado: o contador e registro.
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        self.run_pass()
+        self.assertNotIn("limit", self.state["chain"])
+        self.assertNotIn("receipt_run", self.state["chain"])
         self.assertEqual(self.state["chain"]["count"], 1)
 
-    def test_escalation_after_three_receipt_chains(self):
-        self.baseline()
-        self.state["chain"].update({"count": 1, "limit": 1, "receipt": True, "receipt_run": 0})
-        for name in ("R2-cc.md", "R3-cc.md", "R4-cc.md"):
-            make_round(self.reviews, name, cites="R1-dsh.md")
-            result = self.run_pass()
-            self.assertEqual(result["action"], "refuse")
-            self.assertEqual(result["reason"], "trava")
-        self.assertEqual(self.state["chain"]["limit"], 2)
-        self.assertEqual(self.state["chain"]["limit_source"], "regra")
-        self.assertTrue(any("proxy" in n for n in self.state["notices"]))
-
-    def test_discarded_message_lowers_the_limit(self):
-        self.baseline()
-        self.state["chain"].update({"limit": 2, "limit_source": "manual", "count": 1,
-                                    "last_hop": {"round": 1, "trigger": "R1-cc.md", "responder": "dsh"}})
-        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md", sent_ok=False)
-        result = self.run_pass()
-        self.assertEqual(result["action"], "refuse")
-        self.assertEqual(self.state["chain"]["limit"], 1)
-        self.assertEqual(self.state["chain"]["limit_source"], "regra")
-
-    def test_reset_zeroes_the_counter(self):
+    def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2
-        self.state["chain"]["limit"] = 2
         w.save_state(self.state_path, self.state)
         code = w.main(["--state", str(self.state_path), "--reset"])
         self.assertEqual(code, 0)
-        self.assertEqual(w.load_state(self.state_path)["chain"]["count"], 0)
-
-    def test_set_limit_records_manual_and_warns(self):
-        w.save_state(self.state_path, self.state)
-        code = w.main(["--state", str(self.state_path), "--set-limit", "2"])
-        self.assertEqual(code, 0)
         loaded = w.load_state(self.state_path)
-        self.assertEqual(loaded["chain"]["limit"], 2)
-        self.assertEqual(loaded["chain"]["limit_source"], "manual")
+        self.assertEqual(loaded["chain"]["count"], 0)
+        self.assertTrue(any("reset manual: contador 2 -> 0" in n for n in loaded["notices"]))
 
     def test_status_prints_the_chain(self):
         self.state["chain"]["count"] = 1
@@ -362,16 +347,14 @@ class WatcherTests(unittest.TestCase):
         text = chr(10).join(out)
         self.assertIn("cadeia: 1 salto(s)", text)
 
-    def test_limit_constant_matches_the_contract(self):
+    def test_the_contract_says_the_hop_needs_no_authorization(self):
+        # A correspondencia contrato <-> codigo, na direcao nova: se o contrato
+        # voltar a prometer uma trava, este teste falha antes de o codigo mudar.
         contract = pathlib.Path(HERE).parent / "docs" / "auto_critique2.md"
-        found = w.LIMIT_RE.search(contract.read_text(encoding="utf-8"))
-        self.assertIsNotNone(found, "o contrato precisa dizer o default da trava")
-        self.assertEqual(int(found.group(1)), w.DEFAULT_LIMIT)
-
-    def test_receipt_proxy(self):
-        self.assertTrue(w.is_receipt({"to-markim": "none", "blocks-advance": "no"}))
-        self.assertFalse(w.is_receipt({"to-markim": "M1", "blocks-advance": "no"}))
-        self.assertFalse(w.is_receipt({"to-markim": "none", "blocks-advance": "yes"}))
+        text = contract.read_text(encoding="utf-8")
+        self.assertIn("Não há trava e não há reset", text)
+        self.assertNotIn("O default é", text)
+        self.assertFalse(hasattr(w, "DEFAULT_LIMIT"), "o codigo nao deve ter limite")
 
     # -- o registro fica intacto ----------------------------------------
 
@@ -406,7 +389,6 @@ class WatcherTests(unittest.TestCase):
 
     def test_cc_command_takes_the_line_and_the_target(self):
         self.baseline()
-        self.state["chain"]["limit"] = 2
         self.state["cc_argv"] = [str(self.fake_cc), "-p", "{line}", "--allowedTools",
                                  "Write(docs/reviews/{target})"]
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
@@ -416,10 +398,47 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(result["action"], "dispatch")
         self.assertEqual(json.loads(self.log_cc.read_text()), [
             "-p",
-            "par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md",
+            "par completo:   leia docs/reviews/R2-dsh.md e responda em R3-cc.md" + w.PROCEDURE_NOTE,
             "--allowedTools",
             "Write(docs/reviews/R3-cc.md)",
         ])
+
+    def test_cc_permission_warning_becomes_a_notice(self):
+        self.baseline()
+        warn = self.root / "claude-warn"
+        warn.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "sys.stderr.write('Permission allow rule (--allowed-tools): "
+            "Write(docs/reviews/R3-cc.md) is not matched by file permission checks\\n')\n",
+            encoding="utf-8")
+        warn.chmod(0o755)
+        self.state["cc_argv"] = [str(warn), "-p", "{line}"]
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        self.run_pass()
+        make_round(self.reviews, "R2-dsh.md", cites="R2-cc.md")
+        result = self.run_pass()
+        self.assertEqual(result["action"], "dispatch")
+        self.assertTrue(any("is not matched by file permission checks" in n
+                            for n in result["notices"]), result["notices"])
+
+    def test_hop_env_names_the_round_and_responder(self):
+        self.baseline()
+        seen = self.root / "hop-env.txt"
+        probe = self.root / "claude-env"
+        probe.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os\n"
+            "open(%r, 'w').write(os.environ.get('WATCHER_HOP', ''))\n" % str(seen),
+            encoding="utf-8")
+        probe.chmod(0o755)
+        self.state["cc_argv"] = [str(probe), "-p", "{line}"]
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        self.run_pass()
+        make_round(self.reviews, "R2-dsh.md", cites="R2-cc.md")
+        result = self.run_pass()
+        self.assertEqual(result["action"], "dispatch")
+        self.assertEqual(seen.read_text(), "R3-cc")
 
     def test_the_watcher_never_writes_the_registry(self):
         self.baseline()

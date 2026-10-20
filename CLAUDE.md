@@ -28,10 +28,9 @@ Dois livros lado a lado. A execução é de um livro por vez; a comparação aco
 
 ## Processo
 
-- **Modo CRITIQUE:** descrito em `docs/modo_critique.md`. Antes de qualquer execução paga, numerar os pontos, verificar a afirmação da outra parte, estimar o custo e fixar a barra. Nada que pertence ao Markim é decidido pelo CC.
-- **Orçamento antes de gasto:** qualquer execução que gaste chamadas de API tem estimativa e aprovação antes, com reconciliação depois.
+- **Modo CRITIQUE:** descrito em `docs/modo_critique.md`. Antes de qualquer execução paga, numerar os pontos, verificar a afirmação da outra parte, prever o número de chamadas e fixar a barra. Nada que pertence ao Markim é decidido pelo CC.
+- **Previsão de chamadas antes de gasto:** qualquer execução que gaste chamadas de API declara, antes, quantas chamadas espera fazer, e reconcilia depois com as que fez. O custo em tokens não se estima; o número de chamadas é o que se confere.
 - **Redesenho por causa:** agrupar problemas por causa, ordenar pelo fluxo, tratar um item por vez, com critérios checáveis sem modelo.
-- **Medição não é ponto de partida:** ela só volta depois que o problema de produção estiver definido em termos próprios.
 - **Premissa escrita junto de cada decisão:** cada decisão registra o que a tornou necessária e o que a invalidaria.
 
 ## Harness memory

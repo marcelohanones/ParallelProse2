@@ -244,8 +244,11 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
         elif blocks == "no" and to_markim and to_markim.lower() != "none":
             if not keys.get("why-not-blocking"):
                 findings.append(("gate-coherence", "blocks-advance: no sem why-not-blocking"))
-        elif blocks == "yes" and to_markim.lower() == "none":
-            findings.append(("gate-coherence", "blocks-advance: yes sem rótulo em to-markim"))
+        elif blocks == "yes":
+            if to_markim.lower() == "none":
+                findings.append(("gate-coherence", "blocks-advance: yes sem rótulo em to-markim"))
+            elif not keys.get("why-blocking"):
+                findings.append(("gate-coherence", "blocks-advance: yes sem why-blocking"))
 
     # rule 3: the header count matches the canonical command. Runs even when the
     # gate is missing, because a truncated file is exactly when the count matters.

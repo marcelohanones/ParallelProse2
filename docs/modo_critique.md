@@ -2,7 +2,7 @@
 
 **O que é.** Um modo de trabalho em que duas partes planejam juntas antes de qualquer execução, com uma terceira
 parte que decide: o Markim. Nada é executado, e nenhum gasto é feito, até que as três partes concordem com o plano,
-o resultado esperado, os riscos e o custo. As duas partes que propõem e criticam são as que conversam sobre o
+o resultado esperado e os riscos. As duas partes que propõem e criticam são as que conversam sobre o
 trabalho; no novo repositório, uma dessas partes é a IA editorial.
 
 **Regras de funcionamento**
@@ -28,7 +28,7 @@ trabalho; no novo repositório, uma dessas partes é a IA editorial.
   ruim, ela só vale para o futuro, e os dois números são registrados.
 - **Uma mudança por execução paga.** Mudar duas coisas ao mesmo tempo torna o resultado impossível de atribuir.
 - **O resultado é escrito no formato do projeto:** o que foi feito, por que, o critério cumprido célula por célula,
-  o custo conciliado e o que o item não resolve.
+  e o que o item não resolve.
 
 **Canais.** A comunicação entre as partes ocorre pelo registro: cada parte escreve seus documentos em `docs/`,
 e no registro de rodadas em `docs/reviews/` cada lado escreve só o próprio arquivo, conforme o `README.md` dessa
@@ -37,9 +37,9 @@ Não há canal direto entre os harnesses. A memória compartilhada (camada 2 do 
 ela guarda fatos e decisões duráveis, e o alcance dela no outro harness não é garantido em tempo real.
 
 **Por que existe.** O valor do modo está em que uma afirmação precisa sobreviver a alguém refazendo a conta a partir
-dos arquivos. Ele só funciona se o critério existir antes do custo e se as partes se corrigirem pela medição, e não
+dos arquivos. Ele só funciona se o critério existir antes da quantidade estimada de chamadas e se as partes se corrigirem pela medição, e não
 pela argumentação.
 
 **Como aplicar.** Antes de qualquer execução: numerar os pontos, verificar localmente cada afirmação da outra parte,
-dizer o custo estimado, e nunca decidir nada que pertence ao Markim. Nenhum dos números, barras ou participantes de
+dizer o número de chamadas previsto, e nunca decidir nada que pertence ao Markim. Nenhum dos números, barras ou participantes de
 rodadas anteriores vale como ponto de partida; cada rodada nova define os seus.

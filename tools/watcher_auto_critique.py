@@ -5,7 +5,7 @@
   2. checa: analyze() sobre o arquivo liberado, nunca sobre a pasta;
   3. decide: gate sem pergunta em aberto dispara; com pergunta, não dispara e avisa;
   4. dispara: `dsh --profile headless "<linha>"`, fora do sandbox;
-  5. conta: o salto, e a trava da cadeia.
+  5. conta: o salto, para relatar; nao ha trava.
 
 Ele nunca escreve no registro e nunca responde por um harness. O que ele escreve
 é o próprio estado, em tools/.watcher-state.json, fora de docs/reviews.
@@ -13,8 +13,7 @@ Ele nunca escreve no registro e nunca responde por um harness. O que ele escreve
 Uso:
     python3 tools/watcher_auto_critique.py            # uma passada
     python3 tools/watcher_auto_critique.py --dry-run  # decide e mostra, não dispara
-    python3 tools/watcher_auto_critique.py --reset    # o Markim disparou à mão
-    python3 tools/watcher_auto_critique.py --set-limit 2
+    python3 tools/watcher_auto_critique.py --reset    # zera o contador de relato
     python3 tools/watcher_auto_critique.py --set-cc-cmd "claude -p --permission-prompts none"
 """
 from __future__ import annotations
@@ -41,9 +40,10 @@ HOP_LOGS = ROOT / "tools" / ".watcher-hops"
 DSH_BIN = "dsh"
 TIMEOUT = 1800
 NOTICES_KEPT = 20
-ESCALATE_AFTER = 3
-DEFAULT_LIMIT = 1  # o contrato é a fonte; um teste lê o número de lá
-LIMIT_RE = re.compile(r"O default é (\d+) salto")
+# acrescentado à linha de disparo do dsh: o procedimento da v12 não é opcional, e a
+# investigação do ambiente não é passo de rodada (R15-cc, medido na R15-dsh)
+PROCEDURE_NOTE = (" Siga o procedimento de rodada da v12 (sete passos): leitura em lote, "
+                  "escrita única, contagem única, checador no fim. Não investigue o ambiente.")
 
 
 def new_state() -> dict:
@@ -52,10 +52,6 @@ def new_state() -> dict:
         "seen": {},
         "chain": {
             "count": 0,
-            "limit": DEFAULT_LIMIT,
-            "limit_source": "contrato",
-            "receipt": True,
-            "receipt_run": 0,
             "last_hop": None,
         },
         "notices": [],
@@ -122,12 +118,6 @@ def dispatch_line(trigger: dict, entries: list[dict]) -> dict:
     return {"line": line, "responder": other, "round": target}
 
 
-def is_receipt(keys: dict) -> bool:
-    """O proxy da Regra 5: to-markim none e sem bloco pendente."""
-    return (keys.get("to-markim", "").lower() == "none"
-            and keys.get("blocks-advance") == "no")
-
-
 def dsh_home() -> Path:
     return Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
 
@@ -146,10 +136,11 @@ def preflight() -> tuple[bool, str]:
     return True, ""
 
 
-def run_argv(argv: list[str], timeout: int) -> tuple[bool, str, dict]:
+def run_argv(argv: list[str], timeout: int, env: dict | None = None) -> tuple[bool, str, dict]:
     """Roda e devolve a saída: é dela que sai a reconciliação de tokens da Regra 6."""
     try:
-        proc = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout,
+                              env=env)
     except OSError as exc:
         return False, "falha ao executar %s: %s" % (argv[0], exc), {"argv": argv, "error": str(exc)}
     except subprocess.TimeoutExpired:
@@ -162,7 +153,10 @@ def run_argv(argv: list[str], timeout: int) -> tuple[bool, str, dict]:
     return True, "", output
 
 
-def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int, target: str):
+def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int, target: str,
+             hop: str):
+    # os dois lados seguem o mesmo protocolo: o trecho vai na linha de disparo de cada um
+    line = line + PROCEDURE_NOTE
     if responder == "dsh":
         # --json troca a mensagem final pelos eventos do passo, com o uso de cada
         # chamada: e do stdout do salto que sai a reconciliacao da Regra 6.
@@ -176,7 +170,11 @@ def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int,
             argv = [part.replace("{line}", line).replace("{target}", target) for part in template]
         else:
             argv = template + [line]
-    ok, reason, output = run_argv(argv, timeout)
+    # O salto se anuncia no ambiente: a sessao o le na abertura, sem subir a
+    # cadeia de pais com ps (que nao casa com o comando aprovado).
+    env = dict(os.environ)
+    env["WATCHER_HOP"] = hop
+    ok, reason, output = run_argv(argv, timeout, env=env)
     return ok, reason, argv, output
 
 
@@ -263,12 +261,6 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
     save_now()  # antes de qualquer decisao: um salto interrompido nao volta
     chain = state["chain"]
 
-    if label == "FALHA" and chain.get("last_hop") and chain["limit"] > 1:
-        chain["limit"] = 1
-        chain["limit_source"] = "regra"
-        chain["receipt_run"] = 0
-        note("trava desceu para 1: um salto automatico produziu mensagem descartada")
-
     if label == "FALHA":
         detail = "; ".join("%s: %s" % pair for pair in reported)
         note("FALHA em %s (%s) — recuso o salto, a mensagem fica" % (trigger["name"], detail))
@@ -277,7 +269,6 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
 
     if header.get("gap"):
         chain["count"] = 0
-        chain["receipt"] = True
         note("gap declarado em %s: a vez fecha sem arquivo, contador zerado" % trigger["name"])
         result.update(action="hold", reason="gap")
         return result
@@ -295,22 +286,6 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         return result
 
     plan = dispatch_line(trigger, entries)
-    chain["receipt"] = bool(chain.get("receipt", True)) and is_receipt(keys)
-
-    if chain["count"] >= chain["limit"]:
-        if chain["receipt"]:
-            chain["receipt_run"] = chain.get("receipt_run", 0) + 1
-            if chain["receipt_run"] >= ESCALATE_AFTER and chain["limit"] == DEFAULT_LIMIT:
-                chain["limit"] = 2
-                chain["limit_source"] = "regra"
-                note("trava subiu para 2 apos %d cadeias seguidas de recibo; o criterio e um proxy"
-                     % chain["receipt_run"])
-        else:
-            chain["receipt_run"] = 0
-        note("trava: %d salto(s) na cadeia, limite %d; %s espera o Markim" % (
-            chain["count"], chain["limit"], trigger["name"]))
-        result.update(action="refuse", reason="trava", line=plan["line"], responder=plan["responder"])
-        return result
 
     if dry_run:
         note("dry-run: dispararia %s -> %s" % (plan["responder"], plan["line"]))
@@ -324,8 +299,10 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
             result.update(action="refuse", reason="preflight", line=plan["line"], responder=plan["responder"])
             return result
 
-    target = "R%d-%s.md" % (plan["round"], plan["responder"])
-    ok, why, argv, output = dispatch(plan["responder"], plan["line"], state, dsh_bin, timeout, target)
+    hop = "R%d-%s" % (plan["round"], plan["responder"])
+    target = hop + ".md"
+    ok, why, argv, output = dispatch(plan["responder"], plan["line"], state, dsh_bin, timeout,
+                                     target, hop)
     if hop_logs is not None and output:
         write_hop_log(hop_logs, trigger, plan, output)
     if not ok:
@@ -336,6 +313,15 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
             note("disparo falhou (%s): %s" % (plan["responder"], why))
             result.update(action="failed", reason=why, line=plan["line"], responder=plan["responder"])
         return result
+
+    # A frase de regra de arquivo nao casada vem com returncode 0. Se ficasse so
+    # no hop log, ela sumiria do chat: o hop que gravou a R7-cc a carregou e ela
+    # levou tres rodadas para aparecer.
+    warning = "is not matched by file permission checks"
+    stderr = (output or {}).get("stderr") or ""
+    if plan["responder"] == "cc" and warning in stderr:
+        line = next((text.strip() for text in stderr.splitlines() if warning in text), "")
+        note("aviso no stderr do lado cc: %s" % line[:200])
 
     chain["count"] += 1
     chain["last_hop"] = {"round": trigger["round"], "trigger": trigger["name"], "responder": plan["responder"]}
@@ -355,7 +341,6 @@ def parse_args(argv=None):
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--reset", action="store_true")
     parser.add_argument("--status", action="store_true")
-    parser.add_argument("--set-limit", type=int)
     parser.add_argument("--set-cc-cmd")
     return parser.parse_args(argv)
 
@@ -367,9 +352,8 @@ def main(argv=None) -> int:
 
     if args.status:
         chain = state["chain"]
-        print("registro: %d arquivo(s) no estado; cadeia: %d salto(s), limite %d (%s)" % (
-            len(state["seen"]), chain["count"], chain["limit"], chain["limit_source"]))
-        print("recibo na cadeia: %s; interrupcoes seguidas: %s" % (chain["receipt"], chain["receipt_run"]))
+        print("registro: %d arquivo(s) no estado; cadeia: %d salto(s) desde o ultimo reset" % (
+            len(state["seen"]), chain["count"]))
         if chain.get("last_hop"):
             print("ultimo salto: %s" % chain["last_hop"])
         for line in state["notices"][-5:]:
@@ -377,23 +361,13 @@ def main(argv=None) -> int:
         return 0
 
     if args.reset:
+        previous = state["chain"]["count"]
         state["chain"]["count"] = 0
-        state["chain"]["receipt"] = True
         state["chain"]["last_hop"] = None
+        state["notices"] = (state["notices"] + [
+            "reset manual: contador %d -> 0" % previous])[-NOTICES_KEPT:]
         save_state(state_path, state)
         print("contador zerado: o Markim disparou a mao")
-        return 0
-
-    if args.set_limit is not None:
-        if args.set_limit < 1:
-            print("limite invalido: %d" % args.set_limit)
-            return 2
-        state["chain"]["limit"] = args.set_limit
-        state["chain"]["limit_source"] = "manual"
-        save_state(state_path, state)
-        print("limite %d, origem manual" % args.set_limit)
-        if args.set_limit > DEFAULT_LIMIT:
-            print("aviso: subir a trava e medir um proxy (to-markim: none); diga isso no registro")
         return 0
 
     if args.set_cc_cmd:

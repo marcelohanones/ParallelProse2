@@ -22,7 +22,7 @@ FENCE = chk.BT * 3
 TARGET = "R1-dsh.md"  # round below the checador key vigencia, so it needs no key
 
 
-def build(path, *, gate=True, to_markim="none", blocks="no", why=None,
+def build(path, *, gate=True, to_markim="none", blocks="no", why=None, why_blocking=None,
           footers=1, before_gate=(), after_footer=(), sent_override=None,
           checador=None, opening="_auto"):
     """Write a round file; return its canonical word count."""
@@ -39,6 +39,8 @@ def build(path, *, gate=True, to_markim="none", blocks="no", why=None,
     if gate:
         body += [FENCE + "critique-gate", "round: R99", "from: cc",
                  "to-markim: " + to_markim, "blocks-advance: " + blocks]
+        if why_blocking is not None:
+            body.append("why-blocking: " + why_blocking)
         if why is not None:
             body.append("why-not-blocking: " + why)
         body += [FENCE, ""]
@@ -176,10 +178,18 @@ class CheckerTests(unittest.TestCase):
         p = self.subject(to_markim="none", blocks="yes")
         self.assertIn("gate-coherence", self.rules(p))
 
-    def test_yes_with_label_is_coherent(self):
+    def test_yes_with_label_and_reason_is_coherent(self):
         self.target()
-        p = self.subject(to_markim="M1", blocks="yes", why=None)
+        p = self.subject(to_markim="M1", blocks="yes",
+                         why_blocking="sem default: o conjunto nao roda o criterio")
         self.assertNotIn("gate-coherence", self.rules(p))
+
+    def test_yes_without_why_blocking_is_caught(self):
+        # Bloquear custa uma justificativa: por que a escolha nao tem default
+        # e por que a observacao nao a corrige.
+        self.target()
+        p = self.subject(to_markim="M1", blocks="yes")
+        self.assertIn("gate-coherence", self.rules(p))
 
     def test_hyphenated_addendum_is_a_round_file(self):
         self.assertIsNotNone(chk.FILE_RE.match("R1-dsh-log-de-execucao.md"),
