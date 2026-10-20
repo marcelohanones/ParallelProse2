@@ -52,7 +52,17 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 - **D4, respondida pelo Markim em 2026-10-20:** a série em curso é aposentada **depois** que a v23 entrar. A ordem é esta: a v23 no contrato, fechar a série, apagar o registro, `--new-series`, e só então o monitor. Falta um passo nessa lista, e ele vem depois do reset: com o registro vazio, ninguém tem o que citar, então o Markim pede a um lado, à mão, que escreva `R1-{lado}.md`. Esse arquivo abre a série e tem de passar o checador como qualquer outro — `sent` e gate; a chave do checador e a linha da abertura só são exigidas da R2 em diante. Com o monitor ligado não há linha de disparo a colar: o abridor é turno único, e o watcher dispara o outro lado com `rodada aberta`. A linha só serve ao caminho manual. Enquanto a ordem não se cumprir, a passada de verdade não roda — ela toma a linha de base no meio da série.
 - **D2, respondida em 2026-10-20:** a concordância do Markim com o plano vem depois da revisão do dsh, e não antes. **D3 foi retirada** pelo dsh: era um bloqueio sem default, e o plano executa zero chamadas de API.
 - **O plano dos doze itens** está aceito pelos dois harnesses, com as correções dos itens 5, 6 e 9 e os refinamentos dos itens 1 e 3. O Markim deu o `passa` em 2026-10-20.
-- **O item 1 está feito:** contrato na v23, com a reconciliação como passo 6 do watcher, a previsão sem base, o comando do passo 4 preso às duas chaves do `sent` e a política de falha dentro dele.
+- **O item 1 está feito:** contrato na v25, com a reconciliação como passo 6 do watcher, a previsão sem base, o comando do passo 4 preso às duas chaves do `sent` e a política de falha dentro dele.
+
+**A sequência da D4, com os comandos.** Na ordem, e cada passo com o que se espera ver:
+
+1. `rm docs/reviews/R[0-9]*.md` — apaga o registro e **não** o `README.md`; o glob `R*.md` levaria o README junto.
+2. `python3 tools/watcher_auto_critique.py --new-series` — espera "serie nova: estado anterior arquivado em ...", e recusa se sobrar arquivo de rodada.
+3. Pedir ao lado que abre a série que escreva `docs/reviews/R1-{lado}.md`, à mão. Espera-se o checador em `ok`, e o arquivo sem chave do checador e sem linha de abertura: as duas só valem da R2 em diante.
+4. `python3 tools/watcher_auto_critique.py --monitor` — em segundo plano. O `--status` passa a dizer "monitor ativo pela trava".
+5. Conferir a primeira passada: aparece `R1-{outro}.md` no registro, e o `index.jsonl` ganha uma linha com `status: "salto"`.
+
+Ensaiada em 2026-10-20 num diretório temporário, com dsh e cc falsos, do registro vazio até o primeiro salto: a sequência produz o primeiro disparo, o `index` recebe a linha, a trava e o marcador saem no fim. **Não ensaiada: um salto real**, com as permissões de verdade e a saída `--json` de verdade.
 
 **Pendente, com quem**
 - **Markim:** a lista de capacidades liberadas para o salto do dsh — o que ele pode ler, escrever e executar. A recomendação medida é manter `workspace-write` para escrita e auditar leitura e shell no watcher sem bloquear.
