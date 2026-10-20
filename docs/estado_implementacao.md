@@ -78,25 +78,23 @@ Ensaiada em 2026-10-20 num diretório temporário, com dsh e cc falsos, do regis
 - `python3 tools/watcher_auto_critique.py --new-series` — arquiva o estado anterior e abre a série nova. Exige registro vazio, e o registro nunca está vazio enquanto a troca vive.
 - Uma passada que dispara um salto demora de 4 a 8 minutos: rode em segundo plano.
 
-## Estado para retomar (2026-10-20, fim da sessão)
+## Estado para retomar
 
-**Código.** HEAD em `c043c14`. Suíte com 104 testes verdes e checador ok. A trava do monitor não existe mais: o monitor está parado.
+Esta seção não nomeia o `HEAD`: o commit que a carrega é o que a contém, e `git log` é a fonte. A suíte se mede com `python3 -m unittest discover -s tools`; o número sai dela, não desta página.
 
-**Commits desta sessão, do mais recente ao mais antigo:** `c043c14` (contrato v27 e checador, alterados pelo dsh no disparo automático e commitados sem revisão), `8bbc7bb` (sequência da D4 no ledger), `0ed541b` (`--status` com "sem trava viva"), `8306849` (a trava é a autoridade sobre monitor vivo), `4bdb705` (registro de tokens retirado), `26dc0b8` (trava `O_EXCL`), `24896e7` (prazo do dsh falso em trinta segundos).
+**Código.** O disparo do dsh roda com o diretório de trabalho em `docs/reviews/`, e o cc na raiz. O preflight aceita só `workspace-write` quando a variável `DSH_PERMISSION_MODE` está definida; sem a variável, não há declaração, e quem decide é o perfil. Cada linha do `index.jsonl` grava o modo declarado do dsh, e `null` para o cc.
 
-**Série nova.** A D4 foi executada. A série antiga está arquivada em `tools/.watcher-series/estado-20261020-030613.json`. O registro foi apagado, e a cópia está fora do repositório, em `/private/tmp/reviews-serie-antiga`, que não é versionada e pode sumir.
+**Runbook da sequência.** Suba o monitor de um shell sem `DSH_PERMISSION_MODE`, ou com `workspace-write`; qualquer outro valor faz o `preflight` recusar cada disparo do dsh.
 
-**Cadeia automática.** Sete saltos registrados em `tools/.watcher-hops/index.jsonl`: dsh com 12 e 18 e 16 passos; cc sem contagem, porque o `claude -p` não emite o JSON de passos. A primeira tentativa do cc falhou por autenticação; a causa era a configuração global do Claude Code, em `~/.claude/settings.json`, que injetava `ANTHROPIC_AUTH_TOKEN` e `ANTHROPIC_BASE_URL`. Essas duas entradas foram removidas, com backup em `settings.json.bak-serie`. Depois disso, o cc respondeu pela assinatura. A cadeia parou depois do cc que gravou a rodada seguinte à do dsh, sem resposta do dsh a ela.
+**Série.** A série em curso já está aberta, com as rodadas de R1 a R16 no registro. A série antiga está arquivada em `tools/.watcher-series/`.
 
-**Problema aberto, o mais importante.** O disparo do dsh tem permissão de escrita no repositório inteiro. Nos logs, o dsh editou `tools/test_check_auto_critique.py` e, em outra rodada, `docs/auto_critique2.md`, com seis edições, fora da própria rodada. Essas mudanças foram commitadas em `c043c14` sem revisão, a pedido do Markim. Falta restringir a escrita do disparo do dsh a `docs/reviews/`, com um teste que prove isso, e decidir se `c043c14` fica ou volta.
+**Problema aberto.** A escrita do dsh ficava restrita só pelo cwd da sessão. Isso está resolvido no código por cwd, mas a cerca ainda não foi medida num salto inteiro: falta um salto real com o monitor ligado.
 
 **Pendências, em ordem.**
-1. Revisar `c043c14`: contrato v27 e checador.
-2. Restringir a escrita do disparo do dsh a `docs/reviews/`, com teste.
-3. Acompanhamento da cadeia, decidido em 2026-10-20. O monitor imprime só o log do salto, uma linha compacta por salto: horário, lado, rodada, arquivo gravado, passos e status. A prosa com os temas do salto não vai ao monitor: fica no chat, e só existe enquanto houver uma sessão ativa. Fora da sessão, a cadeia roda sem resumo em prosa até alguém pedir a leitura da rodada. A implementação do log compacto ainda não foi feita.
-4. Decidir se a cadeia retoma pelo dsh na rodada seguinte ao cc.
-5. Testar o caminho com pergunta ao Markim (gate `yes`), que ainda não aconteceu na série nova.
-6. Acompanhar a falha da suíte que não se reproduziu. O log guardado é o que a explica se voltar.
-7. Medidas do dsh: três nesta série (12, 18 e 16 passos), o que já dá base à previsão do próximo salto do dsh, com mediana 16. O cc continua sem medida, porque o `claude -p` não emite contagem de passos.
+1. Medir a cerca num salto inteiro: depende do ambiente do monitor sem `DSH_PERMISSION_MODE`.
+2. Primeira rodada automática do cc com o item 6, para ver se a permissão `PYTHONDONTWRITEBYTECODE=1` casa com o comando aprovado.
+3. Decidir se o modo é fixado no `dispatch` ou só conferido: decisão do Markim.
+4. Teste da cadeia com pergunta ao Markim (gate `yes`): ainda não aconteceu nesta série.
+5. Falha da suíte que não se reproduziu: sem explicação; volta a ser investigada se aparecer.
 
-**Como retomar.** Abra a sessão, confira com `git status` que `c043c14` está em HEAD e que nada está pendente. Antes de religar o monitor, resolva o item 2. Religar o monitor sem ele reabre o problema de escrita fora de `docs/reviews/`.
+**Como retomar.** Confira `git status` e `git log` antes de religar o monitor. Não religue o monitor sem a medida do item 1.

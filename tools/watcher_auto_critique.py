@@ -167,9 +167,10 @@ def dsh_home() -> Path:
 ACCEPTED_MODES = ("workspace-write",)
 
 
-def declared_mode() -> str:
-    """O modo que o watcher lê do ambiente. Não é o que o dsh usa: é a declaração do disparo."""
-    return os.environ.get("DSH_PERMISSION_MODE", "workspace-write").strip().lower()
+def declared_mode() -> str | None:
+    """O modo que o watcher lê do ambiente. Sem a variável, não há declaração: quem decide é o perfil."""
+    raw = os.environ.get("DSH_PERMISSION_MODE")
+    return None if raw is None else raw.strip().lower()
 
 
 def preflight() -> tuple[bool, str]:
@@ -179,7 +180,7 @@ def preflight() -> tuple[bool, str]:
     e o disparo não tem como provar que rodou sob cerca.
     """
     mode = declared_mode()
-    if mode not in ACCEPTED_MODES:
+    if mode is not None and mode not in ACCEPTED_MODES:
         return False, ("modo %r não aceito no disparo do dsh (aceitos: %s); "
                        "desligue DSH_PERMISSION_MODE" % (mode, ", ".join(ACCEPTED_MODES)))
     home = dsh_home()

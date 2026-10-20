@@ -859,7 +859,7 @@ class WatcherTests(unittest.TestCase):
             os.environ.pop("DSH_PERMISSION_MODE", None)
             self.run_pass(hop_logs=hops)
         entry = json.loads((hops / "index.jsonl").read_text().splitlines()[-1])
-        self.assertEqual(entry["modo"], "workspace-write")
+        self.assertIsNone(entry["modo"], "sem a variável, o índice não afirma modo nenhum")
 
     def test_preflight_refuses_any_mode_but_workspace_write(self):
         for mode in ("read-only", "danger-full-access", "modo-desconhecido"):
@@ -867,6 +867,13 @@ class WatcherTests(unittest.TestCase):
                 ok, why = w.preflight()
             self.assertFalse(ok, mode)
             self.assertIn(mode, why)
+
+    def test_absent_mode_is_not_declared_and_not_refused(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("DSH_PERMISSION_MODE", None)
+            ok, _ = w.preflight()
+            self.assertTrue(ok)
+            self.assertIsNone(w.declared_mode())
 
     def test_mode_is_normalized_before_the_check(self):
         with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": "  Workspace-Write "}):
