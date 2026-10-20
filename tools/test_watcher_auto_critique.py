@@ -109,7 +109,7 @@ class WatcherTests(unittest.TestCase):
 
     def run_pass(self, **kwargs):
         kwargs.setdefault("dsh_bin", str(self.fake))
-        kwargs.setdefault("timeout", 5)
+        kwargs.setdefault("timeout", 30)  # sob carga, cinco segundos estouravam o dsh falso
         return w.run_pass(self.reviews, self.state, **kwargs)
 
     def baseline(self):
@@ -601,7 +601,7 @@ class WatcherTests(unittest.TestCase):
 
     def run_monitor(self, ticks, on_tick, hops):
         """O monitor por ticks: on_tick roda entre uma consulta e a próxima, no lugar do sono."""
-        return w.watch(self.reviews, self.state_path, hops, dsh_bin=str(self.fake), timeout=5,
+        return w.watch(self.reviews, self.state_path, hops, dsh_bin=str(self.fake), timeout=30,
                        interval=0, max_ticks=ticks, sleep=lambda _: on_tick())
 
     def prepare_monitor(self):
@@ -804,7 +804,7 @@ class WatcherTests(unittest.TestCase):
         make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
         logs = self.root / "hops"
         result = w.run_pass(self.reviews, self.state, dsh_bin=str(self.fake),
-                            timeout=5, hop_logs=logs)
+                            timeout=30, hop_logs=logs)
         self.assertEqual(result["action"], "dispatch")
         files = list(logs.glob("hop-*.json"))
         self.assertEqual(len(files), 1)
@@ -823,7 +823,7 @@ class WatcherTests(unittest.TestCase):
 
         with mock.patch.object(w, "dispatch", side_effect=RuntimeError("interrompido")):
             with self.assertRaises(RuntimeError):
-                w.run_pass(self.reviews, self.state, dsh_bin=str(self.fake), timeout=5,
+                w.run_pass(self.reviews, self.state, dsh_bin=str(self.fake), timeout=30,
                            persist=persist)
         self.assertTrue(marks, "persist nao foi chamado")
         self.assertIn("R2-cc.md", marks[-1], "o arquivo tem de estar gravado antes do disparo")
