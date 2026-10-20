@@ -174,7 +174,7 @@ def preflight() -> tuple[bool, str]:
 
 
 def run_argv(argv: list[str], timeout: int, env: dict | None = None) -> tuple[bool, str, dict]:
-    """Roda e devolve a saída: é dela que sai a reconciliação de tokens da Regra 6."""
+    """Roda e devolve a saída: é dela que sai a reconciliação de passos da Regra 6."""
     try:
         proc = subprocess.run(argv, cwd=str(ROOT), capture_output=True, text=True, timeout=timeout,
                               env=env)
@@ -228,26 +228,6 @@ def count_steps(stdout: str) -> int | None:
     return count if count else None
 
 
-def tokens_of(stdout: str) -> dict | None:
-    """Tokens do salto: a soma de usage dos eventos step_end. Sem usage, sem base."""
-    totals = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0}
-    seen = False
-    for line in stdout.splitlines():
-        try:
-            event = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(event, dict) or event.get("phase") != "step_end":
-            continue
-        usage = event.get("usage") or {}
-        seen = True
-        totals["input"] += usage.get("inputTokens", 0)
-        totals["output"] += usage.get("outputTokens", 0)
-        totals["cache_read"] += usage.get("cacheReadTokens", 0)
-        totals["cache_write"] += usage.get("cacheWriteTokens", 0)
-    return totals if seen else None
-
-
 def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
     """A previsão do salto: a mediana de todas as medidas do mesmo lado, a partir de três. Antes, sem base."""
     if hop_logs is None or not (hop_logs / "index.jsonl").exists():
@@ -267,8 +247,7 @@ def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
 
 
 def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, reason: str,
-               log_path: Path | None, passos: int | None = None, previsto: float | None = None,
-               tokens: dict | None = None) -> None:
+               log_path: Path | None, passos: int | None = None, previsto: float | None = None) -> None:
     """Uma linha por salto: rodada, alvo, motivo, caminho do log, e os passos contra a previsão."""
     if hop_logs is None:
         return
@@ -277,16 +256,9 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "responder": plan["responder"],
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
-             "passos": passos, "previsto": previsto, "tokens": tokens}
+             "passos": passos, "previsto": previsto}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
-
-
-def tokens_from(output: dict | None) -> dict | None:
-    """Os tokens do salto a partir da saída que o dispatch devolveu."""
-    if not output or "stdout" not in output:
-        return None
-    return tokens_of(output.get("stdout") or "")
 
 
 def passos_of(output: dict | None) -> int | None:
@@ -469,7 +441,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         else:
             note("disparo falhou: %s (alvo %s, gatilho %s): %s" % (plan["responder"], target, trigger["name"], why))
             record_hop(hop_logs, plan, trigger, "falha-de-salto", why, log_path,
-                       passos=passos_of(output), previsto=previsto, tokens=tokens_from(output))
+                       passos=passos_of(output), previsto=previsto)
             result.update(action="failed", reason=why, line=plan["line"], responder=plan["responder"])
         return result
 
@@ -481,7 +453,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         note("sem resposta: o salto saiu com 0 e nao gravou %s (gatilho %s); aviso, sem nova tentativa"
              % (target, trigger["name"]))
         record_hop(hop_logs, plan, trigger, "sem-resposta", "", log_path,
-                   passos=passos_of(output), previsto=previsto, tokens=tokens_from(output))
+                   passos=passos_of(output), previsto=previsto)
         save_now()
         result.update(action="no-answer", reason="sem-resposta", line=plan["line"], responder=plan["responder"])
         return result
@@ -496,8 +468,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         note("aviso no stderr do lado cc: %s" % line[:200])
 
     passos = passos_of(output)
-    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto,
-               tokens=tokens_from(output))
+    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto)
     if passos is not None and previsto is not None and passos > 2 * previsto:
         note("salto %s: %d passos, previsto %g: fora do previsto" % (target, passos, previsto))
     chain["count"] += 1
