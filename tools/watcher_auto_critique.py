@@ -217,16 +217,15 @@ def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int,
 
 def count_steps(stdout: str) -> int | None:
     """Passos de modelo do salto: os eventos step_start do stdout JSON. Texto puro é sem base."""
-    count, saw_json = 0, False
+    count = 0
     for line in stdout.splitlines():
         try:
             event = json.loads(line)
         except ValueError:
             continue
-        saw_json = True
-        if event.get("phase") == "step_start":
+        if isinstance(event, dict) and event.get("phase") == "step_start":
             count += 1
-    return count if saw_json else None
+    return count if count else None
 
 
 def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
@@ -236,7 +235,7 @@ def predicted_steps(hop_logs: Path | None, responder: str) -> float | None:
     measured = []
     for line in (hop_logs / "index.jsonl").read_text(encoding="utf-8").splitlines():
         entry = json.loads(line)
-        if entry.get("responder") == responder and entry.get("passos") is not None:
+        if entry.get("responder") == responder and entry.get("status") == "salto" and entry.get("passos") is not None:
             measured.append(entry["passos"])
     if len(measured) < 3:
         return None
@@ -300,10 +299,13 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
 
     entries = scan(reviews)
     seen = state["seen"]
+    names_now = {e["name"] for e in scan(reviews)}
+    if state.get("ambiguous") and set(state["ambiguous"]) != names_now:
+        state.pop("ambiguous")  # o registro mudou: a ambiguidade de antes não vale mais
     stale = state.pop("disparando", None)  # um salto que não voltou: o processo caiu durante ele
     if stale and hop_logs is not None and not dry_run:
         record_hop(hop_logs, stale, {"name": stale["trigger"]}, "salto-interrompido",
-                   "o processo caiu durante o salto; olhar humano", None)
+                   "o processo caiu durante o salto; olhar humano", None, previsto=stale.get("previsto"))
     result = {"action": "idle", "reason": "", "line": "", "responder": "", "notices": []}
 
     def note(text: str) -> None:
@@ -358,6 +360,7 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         if trigger_pair is None:
             for entry in turns:
                 seen[entry["name"]] = entry["sha"]
+            state["ambiguous"] = sorted(e["name"] for e in turns)  # fica no estado até o registro mudar
             note("mais de um arquivo novo (%s); o watcher nao escolhe" % ", ".join(e["name"] for e in turns))
             result["action"] = "ambiguous"
             return result
@@ -494,6 +497,20 @@ def start_new_series(state_path: Path, reviews: Path) -> tuple[int, str]:
     return 0, "serie nova: estado anterior arquivado em %s" % archived
 
 
+def monitor_alive(state: dict) -> bool:
+    """O monitor está vivo se o marcador existe e o pid responde; marcador preso não conta."""
+    marker = state.get("monitor")
+    if not marker:
+        return False
+    try:
+        os.kill(marker["pid"], 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def watch(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str = DSH_BIN,
           timeout: int = TIMEOUT, interval: float = POLL_SECONDS, max_ticks: int | None = None,
           sleep=time.sleep) -> int:
@@ -502,13 +519,15 @@ def watch(reviews: Path, state_path: Path, hop_logs: Path, *, dsh_bin: str = DSH
     Um salto por vez: a passada é síncrona, e a consulta seguinte só acontece depois dela.
     Um rascunho pendente (0000) mantém a passada rodando, para o P-d contar o tempo.
     """
+    marker = {"pid": os.getpid(), "since": time.strftime("%Y-%m-%dT%H:%M:%S")}
     state = load_state(state_path)
-    state["monitor"] = {"pid": os.getpid(), "since": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    state["monitor"] = marker
     save_state(state_path, state)
     previous = processed = None
     tick = 0
     try:
         while max_ticks is None or tick < max_ticks:
+            state = load_state(state_path)  # relê: um comando feito no meio da sessão não é desfeito
             snapshot = {e["name"]: e["sha"] for e in scan(reviews)}
             stable = snapshot == previous
             if stable and (snapshot != processed or state.get("pending")):
@@ -558,8 +577,12 @@ def main(argv=None) -> int:
         for line in state["notices"][-5:]:
             print("  " + line)
         monitor = state.get("monitor")
-        if monitor:
+        if monitor and monitor_alive(state):
             print("monitor ativo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
+        elif monitor:
+            print("monitor marcado, sem processo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
+        if state.get("ambiguous"):
+            print("ambiguidade pendente: %s" % ", ".join(state["ambiguous"]))
         index = Path(args.hop_logs) / "index.jsonl"
         if index.exists():
             for line in index.read_text(encoding="utf-8").splitlines()[-5:]:
@@ -569,6 +592,10 @@ def main(argv=None) -> int:
                     label, entry["target"], entry["status"], entry["trigger"],
                     entry.get("passos"), entry.get("previsto")))
         return 0
+
+    if monitor_alive(state) and (args.reset or args.set_cc_cmd or args.new_series):
+        print("monitor ativo (pid %s): pare-o antes de mexer no estado" % state["monitor"]["pid"])
+        return 1
 
     if args.reset:
         previous = state["chain"]["count"]

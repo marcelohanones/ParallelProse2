@@ -563,7 +563,7 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(w.count_steps(jsonl), 2)
         self.assertIsNone(w.count_steps("texto puro, sem JSON\n"))
 
-    def test_prediction_is_the_median_of_the_last_hops_and_needs_three(self):
+    def test_prediction_is_the_median_of_all_measured_hops_from_three(self):
         hops = self.root / "hops"
         hops.mkdir()
         index = hops / "index.jsonl"
@@ -665,6 +665,87 @@ class WatcherTests(unittest.TestCase):
         self.assertNotIn("leitura em lote", note)
         self.assertIn("docs/auto_critique2.md", note)
         self.assertIn("Não investigue o ambiente.", note)
+
+    def test_monitor_rereads_the_state_each_tick(self):
+        # 3.1: uma edição do estado no meio da sessão é respeitada pelo monitor, e não desfeita
+        self.prepare_monitor()
+        hops = self.root / "hops"
+        make_round(self.reviews, "R1-cc.md")
+
+        def on_tick():
+            if not getattr(on_tick, "done", False):
+                on_tick.done = True
+                state = w.load_state(self.state_path)
+                state["chain"]["count"] = 99
+                w.save_state(self.state_path, state)
+
+        self.run_monitor(6, on_tick, hops)
+        hops_done = len(list(hops.glob("hop-*.json")))
+        self.assertGreaterEqual(hops_done, 1)
+        self.assertEqual(w.load_state(self.state_path)["chain"]["count"], 99 + hops_done,
+                         "a edição sobreviveu aos disparos")
+
+    def test_state_commands_refuse_while_a_live_monitor_holds_the_state(self):
+        # 3.1: --reset, --set-cc-cmd e --new-series recusam com o monitor vivo (pid desta sessão)
+        self.state["monitor"] = {"pid": os.getpid(), "since": "agora"}
+        self.state["chain"]["count"] = 4
+        w.save_state(self.state_path, self.state)
+        base = ["--state", str(self.state_path), "--reviews", str(self.reviews)]
+        self.assertEqual(w.main(base + ["--reset"]), 1)
+        self.assertEqual(w.main(base + ["--set-cc-cmd", "claude -p"]), 1)
+        self.assertEqual(w.main(base + ["--new-series"]), 1)
+        self.assertEqual(w.load_state(self.state_path)["chain"]["count"], 4, "nada foi desfeito")
+
+    def test_count_steps_is_none_without_a_step_start(self):
+        # 3.2: um JSON sem step_start não é medição de passo
+        self.assertIsNone(w.count_steps('{"type":"status","phase":"other"}\n'))
+        self.assertIsNone(w.count_steps('{"type":"text","text":"x"}\n'))
+
+    def test_failed_hops_do_not_feed_the_prediction(self):
+        # 3.3: a base da previsão é só de saltos que deram resposta
+        hops = self.root / "hops"
+        hops.mkdir()
+        rows = [{"responder": "dsh", "passos": n, "status": "salto"} for n in (10, 10, 10)]
+        rows += [{"responder": "dsh", "passos": 1, "status": "falha-de-salto"} for _ in range(2)]
+        rows += [{"responder": "dsh", "passos": 1, "status": "sem-resposta"} for _ in range(2)]
+        (hops / "index.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+        self.assertEqual(w.predicted_steps(hops, "dsh"), 10)
+
+    def test_interrupted_hop_keeps_the_declared_prediction(self):
+        # 3.5: o salto interrompido grava a previsão que foi declarada antes do disparo
+        self.baseline()
+        hops = self.root / "hops"
+        self.state["disparando"] = {"hop": "R2-dsh", "round": 2, "responder": "dsh",
+                                    "trigger": "R2-cc.md", "target": "R2-dsh.md", "previsto": 45}
+        self.run_pass(hop_logs=hops)
+        entries = [json.loads(line) for line in (hops / "index.jsonl").read_text().splitlines()]
+        self.assertEqual(entries[-1]["status"], "salto-interrompido")
+        self.assertEqual(entries[-1]["previsto"], 45)
+
+    def test_status_flags_a_monitor_whose_process_is_gone(self):
+        # 5.2: um marcador preso, sem processo, não é anunciado como monitor ativo
+        self.state["monitor"] = {"pid": 999999, "since": "antes"}
+        w.save_state(self.state_path, self.state)
+        out = []
+        with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
+            w.main(["--state", str(self.state_path), "--status", "--hop-logs", str(self.root / "h")])
+        self.assertTrue(any("sem processo" in line for line in out), out)
+        self.assertFalse(any("monitor ativo" in line for line in out), out)
+
+    def test_ambiguity_stays_visible_until_the_registry_changes(self):
+        # 5.3: três arquivos novos ficam no --status até o registro mudar
+        self.baseline()
+        for name in ("R2-cc.md", "R3-cc.md", "R4-cc.md"):
+            make_round(self.reviews, name)
+        self.run_pass()
+        w.save_state(self.state_path, self.state)
+        out = []
+        with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
+            w.main(["--state", str(self.state_path), "--status", "--hop-logs", str(self.root / "h")])
+        self.assertTrue(any("ambiguidade" in line for line in out), out)
+        (self.reviews / "R4-cc.md").unlink()
+        self.run_pass()
+        self.assertNotIn("ambiguous", self.state)
 
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
