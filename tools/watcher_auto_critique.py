@@ -163,8 +163,19 @@ def dsh_home() -> Path:
     return Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
 
 
+def effective_mode() -> str:
+    """O modo de permissão que o dsh vai usar: o herdado do ambiente, ou o padrão do perfil."""
+    return os.environ.get("DSH_PERMISSION_MODE", "workspace-write")
+
+
 def preflight() -> tuple[bool, str]:
-    """O perfil do dsh é gravado em ~/.dsh; um sandbox bloqueia ali antes da API."""
+    """O perfil do dsh é gravado em ~/.dsh; um sandbox bloqueia ali antes da API.
+
+    Também recusa o modo sem cerca: com danger-full-access o dsh escreve em qualquer lugar,
+    e o disparo não tem como provar que rodou sob cerca.
+    """
+    if effective_mode() == "danger-full-access":
+        return False, "modo danger-full-access: a cerca do dsh fica desligada; desligue DSH_PERMISSION_MODE"
     home = dsh_home()
     try:
         home.mkdir(parents=True, exist_ok=True)
@@ -263,7 +274,8 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "responder": plan["responder"],
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
-             "passos": passos, "previsto": previsto}
+             "passos": passos, "previsto": previsto,
+             "modo": effective_mode() if plan["responder"] == "dsh" else None}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
 

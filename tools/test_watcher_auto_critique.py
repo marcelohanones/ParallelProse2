@@ -836,6 +836,31 @@ class WatcherTests(unittest.TestCase):
         self.assertIn("docs/auto_critique2.md", w.procedure_note("cc"))
         self.assertNotIn("../", w.procedure_note("cc"))
 
+    def test_preflight_refuses_danger_full_access(self):
+        # o modo sem cerca não dispara o dsh: a cerca é o que a mudança de cwd promete
+        with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": "danger-full-access"}):
+            ok, why = w.preflight()
+        self.assertFalse(ok)
+        self.assertIn("danger-full-access", why)
+
+    def test_dsh_hop_is_refused_under_danger_full_access(self):
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": "danger-full-access"}):
+            result = self.run_pass()
+        self.assertEqual(result["action"], "refuse")
+        self.assertFalse(self.log.exists(), "o dsh não foi chamado")
+
+    def test_index_records_the_effective_mode_of_a_dsh_hop(self):
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        hops = self.root / "hops"
+        with mock.patch.dict(os.environ):
+            os.environ.pop("DSH_PERMISSION_MODE", None)
+            self.run_pass(hop_logs=hops)
+        entry = json.loads((hops / "index.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(entry["modo"], "workspace-write")
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2
