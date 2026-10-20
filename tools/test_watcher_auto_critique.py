@@ -861,6 +861,18 @@ class WatcherTests(unittest.TestCase):
         entry = json.loads((hops / "index.jsonl").read_text().splitlines()[-1])
         self.assertEqual(entry["modo"], "workspace-write")
 
+    def test_preflight_refuses_any_mode_but_workspace_write(self):
+        for mode in ("read-only", "danger-full-access", "modo-desconhecido"):
+            with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": mode}):
+                ok, why = w.preflight()
+            self.assertFalse(ok, mode)
+            self.assertIn(mode, why)
+
+    def test_mode_is_normalized_before_the_check(self):
+        with mock.patch.dict(os.environ, {"DSH_PERMISSION_MODE": "  Workspace-Write "}):
+            ok, _ = w.preflight()
+        self.assertTrue(ok)
+
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)
         self.state["chain"]["count"] = 2

@@ -163,9 +163,13 @@ def dsh_home() -> Path:
     return Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
 
 
-def effective_mode() -> str:
-    """O modo de permissão que o dsh vai usar: o herdado do ambiente, ou o padrão do perfil."""
-    return os.environ.get("DSH_PERMISSION_MODE", "workspace-write")
+# o único modo que o disparo aceita: read-only impede o dsh de gravar a própria resposta
+ACCEPTED_MODES = ("workspace-write",)
+
+
+def declared_mode() -> str:
+    """O modo que o watcher lê do ambiente. Não é o que o dsh usa: é a declaração do disparo."""
+    return os.environ.get("DSH_PERMISSION_MODE", "workspace-write").strip().lower()
 
 
 def preflight() -> tuple[bool, str]:
@@ -174,8 +178,10 @@ def preflight() -> tuple[bool, str]:
     Também recusa o modo sem cerca: com danger-full-access o dsh escreve em qualquer lugar,
     e o disparo não tem como provar que rodou sob cerca.
     """
-    if effective_mode() == "danger-full-access":
-        return False, "modo danger-full-access: a cerca do dsh fica desligada; desligue DSH_PERMISSION_MODE"
+    mode = declared_mode()
+    if mode not in ACCEPTED_MODES:
+        return False, ("modo %r não aceito no disparo do dsh (aceitos: %s); "
+                       "desligue DSH_PERMISSION_MODE" % (mode, ", ".join(ACCEPTED_MODES)))
     home = dsh_home()
     try:
         home.mkdir(parents=True, exist_ok=True)
@@ -275,7 +281,7 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
              "passos": passos, "previsto": previsto,
-             "modo": effective_mode() if plan["responder"] == "dsh" else None}
+             "modo": declared_mode() if plan["responder"] == "dsh" else None}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
 
