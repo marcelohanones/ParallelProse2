@@ -5,16 +5,17 @@ Signals only: this script never edits, rewrites or deletes anything. Exit 0 when
 there is no failure, 2 when at least one file fails, following P7 of
 docs/harness_memory_design.md (a check signals; the person decides).
 
-The six items below are the contract's verification section, in its order:
+The four items below are the contract's verification section, in its order:
 
   1. the gate block exists, parses, and nothing after it is a section other than
      the counts footer, and nothing at all follows the footer   -> "gate-last"
   2. to-markim and blocks-advance are coherent                   -> "gate-coherence"
-  3. sent in the header matches LC_ALL=C wc -w                   -> "sent"
-  4. at most one counts footer                                   -> "single-footer"
-  5. the checador key cites the file this message answers, and its number is
+  3. the checador key cites the file this message answers, and its number is
      that file's own findings                                   -> "checador"
-  6. the file cited in that key is named in the opening line     -> "opening"
+  4. the file cited in that key is named in the opening line     -> "opening"
+
+The word count is no longer checked here: the watcher counts it after each hop
+and records it in the index, so a round file carries no count to get wrong.
 
 Separately, it reports addenda that no opening line names. That report is
 registry-level and never fails a file: which message owed the addendum a
@@ -46,13 +47,12 @@ BT = chr(96)
 # The rule names the code emits, in the contract's verification order. The
 # contract names each one in backticks after "regra", and
 # test_contract_lists_every_rule keeps the two lists equal.
-RULES = ("gate-last", "gate-coherence", "sent", "single-footer", "checador", "opening")
+RULES = ("gate-last", "gate-coherence", "checador", "opening")
 RULE_HINT_RE = re.compile(r"regra `([\w-]+)`")
 
 ROUND_RE = re.compile(r"^R(\d+)-(cc|dsh)((?:-[a-z0-9]+)*)\.md$")
 FILE_RE = ROUND_RE
 OPENING_RE = re.compile(r"^Segue as? mensage(?:ns|m)\b")
-SENT_RE = re.compile(r"<!--\s*sent:\s*(\d+)\s*palavra")
 FENCE_RE = re.compile("^(" + BT + "{3,})([^" + BT + "]*)$")
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
 COUNTS_RE = re.compile(r"^##\s+Contagens\s*$")
@@ -255,23 +255,12 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
             elif not keys.get("why-blocking"):
                 findings.append(("gate-coherence", "blocks-advance: yes sem why-blocking"))
 
-    # rule 3: the header count matches the canonical command. Runs even when the
-    # gate is missing, because a truncated file is exactly when the count matters.
-    header = next((l for l in lines if l.strip()), "")
-    declared = SENT_RE.search(header)
-    if not declared:
-        findings.append(("sent", "sem cabecalho de contagem"))
-    else:
-        actual = word_count(path)
-        if int(declared.group(1)) != actual:
-            findings.append(("sent", "declarado %s, canonico %d" % (declared.group(1), actual)))
-
-    # rule 5: the checador key, mandatory from FIRST_CHECKER_KEY_ROUND. It cites the file this
+    # rule 3: the checador key, mandatory from FIRST_CHECKER_KEY_ROUND. It cites the file this
     # message answers, and the number the checker reports for that file. The
     # inventory is never the value: it includes the file being written, so it is
     # false by construction. _depth stops a citation loop between two files.
     #
-    # rule 6: the opening line names the message(s) this one answers, and the
+    # rule 4: the opening line names the message(s) this one answers, and the
     # key's target has to be among them. It is a membership test, not equality,
     # because a message can answer a question and its addendum at once.
     name_match = FILE_RE.match(path.name)
@@ -308,11 +297,6 @@ def analyze(path: Path, _depth: int = 0) -> list[tuple[str, str]]:
             named = re.findall(r"[\w.-]+\.md", opening)
             if cited.group(1) not in named:
                 findings.append(("opening", "alvo %s nao consta da abertura (%s)" % (cited.group(1), ", ".join(named) or "nenhum")))
-
-    # rule 4: at most one counts footer
-    counts = [i + 1 for i, l in enumerate(lines) if not inside[i] and COUNTS_RE.match(l)]
-    if len(counts) > 1:
-        findings.append(("single-footer", "%d rodapes (linhas %s)" % (len(counts), ", ".join(map(str, counts)))))
 
     # one finding per rule is enough to point the reader at the problem
     seen: set[str] = set()

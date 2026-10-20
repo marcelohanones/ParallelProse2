@@ -8,6 +8,8 @@ API. Run with:
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -36,24 +38,23 @@ if found and os.environ.get("FAKE_REVIEWS") and not os.environ.get("FAKE_SILENT"
     cited = re.search(r"leia (?:docs/reviews/)?(R[0-9]+-[a-z]+\\.md)", line)
     prev = cited.group(1) if cited else ""
     checker = ("checador: " + prev + " — 0 achado(s)\\n\\nSegue a mensagem " + prev + "\\n\\n") if prev else ""
-    body = ("<!-- sent: 0000 palavras (x) -->\\n" + checker
-            + "```critique-gate\\nround: R9\\nfrom: dsh\\nto-markim: none\\nblocks-advance: no\\n```\\n")
+    body = (checker + "```critique-gate\\nround: R9\\nfrom: dsh\\nto-markim: none\\nblocks-advance: no\\n```\\n")
     with open(os.path.join(os.environ["FAKE_REVIEWS"], found.group(1)), "w") as handle:
-        handle.write(body.replace("0000", str(len(body.split()))))
+        handle.write(body)
 sys.exit(int(os.environ.get("FAKE_EXIT", "0")))
 """
 
 
 def make_round(reviews, name, *, cites=None, to_markim="none", blocks="no", why=None,
-               why_blocking=None, gap=None, sent_ok=True):
+               why_blocking=None, gap=None, achados=0):
     """A well-formed round file, except where a case asks it not to be."""
     path = pathlib.Path(reviews) / name
     round_no, side = name.split("-")[0], name.split("-")[1].split(".")[0]
-    lines = ["<!-- sent: 0000 palavras (x) -->"]
+    lines = []
     if gap:
         lines.append("gap: " + gap)
     if cites:
-        lines.append("checador: %s \u2014 0 achado(s)" % cites)
+        lines.append("checador: %s \u2014 %d achado(s)" % (cites, achados))
         lines.append("Segue a mensagem `%s`." % cites)
     lines += ["", "# T", "", "corpo com algumas palavras.", ""]
     lines += ["```critique-gate", "round: " + round_no, "from: " + side,
@@ -62,11 +63,8 @@ def make_round(reviews, name, *, cites=None, to_markim="none", blocks="no", why=
         lines.append("why-blocking: " + why_blocking)
     if why:
         lines.append("why-not-blocking: " + why)
-    lines += ["```", "", "## Contagens", "", "- **sent**: 0000 palavras"]
-    text = chr(10).join(lines) + chr(10)
-    path.write_text(text, encoding="utf-8")
-    count = chk.word_count(path)
-    path.write_text(text.replace("0000", str(count if sent_ok else count + 1)), encoding="utf-8")
+    lines += ["```", ""]
+    path.write_text(chr(10).join(lines) + chr(10), encoding="utf-8")
     return path
 
 
@@ -295,7 +293,7 @@ class WatcherTests(unittest.TestCase):
 
     def test_checker_failure_refuses_the_hop(self):
         self.baseline()
-        path = make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md", sent_ok=False)
+        path = make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md", achados=1)
         before = path.read_text(encoding="utf-8")
         result = self.run_pass()
         self.assertEqual(result["action"], "refuse")
@@ -502,15 +500,41 @@ class WatcherTests(unittest.TestCase):
         self.assertEqual(result["action"], "dispatch")
         self.assertEqual(self.state["chain"]["count"], 1, "disparou uma vez, depois da troca")
 
-    def test_draft_over_fifteen_minutes_warns_and_does_not_refuse(self):
-        # P-d: o marcador por mais de 15 min é aviso, não FALHA e não silêncio
+    def test_hop_over_the_pd_limit_warns_while_it_runs_and_is_not_a_failure(self):
+        # P-d: o disparando com mais de PENDING_LIMIT é aviso no chat, enquanto o salto ainda roda
         self.baseline()
-        (self.reviews / "R2-cc.md").write_text("<!-- sent: 0000 palavras -->\n# R2\n", encoding="utf-8")
-        self.state["pending"] = {"R2-cc.md": {"since": w.time.time() - 16 * 60, "warned": False}}
-        result = self.run_pass()
-        self.assertEqual(result["action"], "pending")
-        self.assertTrue(any("15 min" in n for n in result["notices"]))
-        self.assertFalse(any(n.startswith("FALHA") for n in result["notices"]))
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        os.environ["FAKE_SLEEP"] = "1"
+        out = io.StringIO()
+        with mock.patch.object(w, "PENDING_LIMIT", 0.2), contextlib.redirect_stdout(out):
+            result = self.run_pass()
+        self.assertEqual(result["action"], "dispatch")
+        self.assertIn("P-d: salto R2-dsh.md em curso", out.getvalue())
+        self.assertIn("aviso, nem FALHA nem silêncio", out.getvalue())
+
+    def test_hop_under_the_pd_limit_is_silent(self):
+        # P-d: um salto que termina antes do limite não gera aviso
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            result = self.run_pass()
+        self.assertEqual(result["action"], "dispatch")
+        self.assertNotIn("P-d", out.getvalue())
+
+    def test_index_records_the_words_of_the_file_the_hop_wrote(self):
+        # a contagem não é do hop: o watcher conta o arquivo gravado, igual ao LC_ALL=C wc -w
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        hops = self.root / "hops"
+        self.run_pass(hop_logs=hops)
+        written = self.reviews / "R2-dsh.md"
+        self.assertTrue(written.exists(), "o dsh falso gravou a resposta")
+        wc = subprocess.run(["wc", "-w", str(written)], capture_output=True, text=True,
+                            env=dict(os.environ, LC_ALL="C")).stdout.split()[0]
+        entry = json.loads((hops / "index.jsonl").read_text().splitlines()[-1])
+        self.assertEqual(entry["status"], "salto")
+        self.assertEqual(entry["palavras"], int(wc))
 
     def test_interrupted_hop_is_noticed_and_never_redispatched(self):
         # T3 (item 9): a marca e o registro "disparando" vão na mesma gravação, antes do subprocesso;

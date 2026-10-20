@@ -26,10 +26,9 @@ TARGET = "R1-dsh.md"  # round below the checador key vigencia, so it needs no ke
 
 
 def build(path, *, gate=True, to_markim="none", blocks="no", why=None, why_blocking=None,
-          footers=1, before_gate=(), after_footer=(), sent_override=None,
-          checador=None, opening="_auto"):
-    """Write a round file; return its canonical word count."""
-    body = ["<!-- sent: 0000 palavras (LC_ALL=C wc -w neste arquivo) -->"]
+          before_gate=(), after_gate=(), checador=None, opening="_auto"):
+    """Write a round file in the model without a count: no header, no counts footer."""
+    body = []
     if checador is not None:
         body.append("checador: " + checador)
     if opening == "_auto":
@@ -47,15 +46,8 @@ def build(path, *, gate=True, to_markim="none", blocks="no", why=None, why_block
         if why is not None:
             body.append("why-not-blocking: " + why)
         body += [FENCE, ""]
-    for _ in range(footers):
-        body += ["## Contagens", "- ok", ""]
-    body += list(after_footer)
-    text = chr(10).join(body) + chr(10)
-    path.write_text(text, encoding="utf-8")
-    actual = chk.word_count(path)
-    replaced = text.replace("0000", str(actual if sent_override is None else sent_override))
-    path.write_text(replaced, encoding="utf-8")
-    return actual
+    body += list(after_gate)
+    path.write_text(chr(10).join(body) + chr(10), encoding="utf-8")
 
 
 class CheckerTests(unittest.TestCase):
@@ -92,22 +84,20 @@ class CheckerTests(unittest.TestCase):
         p = self.subject(before_gate=["## Linha de disparo", "texto antes do gate"])
         self.assertEqual(chk.analyze(p), [])
 
-    def test_section_after_footer_is_caught(self):
+    def test_section_after_gate_is_caught(self):
         self.target()
-        p = self.subject(after_footer=["## Linha de disparo", "texto"])
+        p = self.subject(after_gate=["## Linha de disparo", "texto"])
         self.assertIn("gate-last", self.rules(p))
 
-    def test_missing_gate_still_checks_sent(self):
+    def test_round_file_without_a_count_passes_the_four_rules(self):
+        # a contagem saiu do arquivo: sem cabeçalho nem rodapé, o checador confere só as quatro regras
         self.target()
-        p = self.subject(gate=False, sent_override=999)
-        found = self.rules(p)
-        self.assertIn("gate-last", found)
-        self.assertIn("sent", found, "arquivo truncado sem gate precisa ter a contagem cobrada")
-
-    def test_two_footers(self):
-        self.target()
-        p = self.subject(footers=2)
-        self.assertIn("single-footer", self.rules(p))
+        p = self.subject()
+        text = p.read_text(encoding="utf-8")
+        self.assertNotIn("sent:", text)
+        self.assertNotIn("## Contagens", text)
+        self.assertEqual(chk.analyze(p), [])
+        self.assertEqual(chk.RULES, ("gate-last", "gate-coherence", "checador", "opening"))
 
     def test_no_why_when_to_markim_is_not_none(self):
         self.target()
@@ -118,13 +108,6 @@ class CheckerTests(unittest.TestCase):
         self.target()
         p = self.subject(to_markim="none", blocks="no")
         self.assertNotIn("gate-coherence", self.rules(p))
-
-    def test_wrong_sent_is_caught(self):
-        self.target()
-        p = self.dir / "R90-cc.md"
-        actual = build(p, sent_override=1, checador=TARGET + " \u2014 0 achado(s)")
-        self.assertIn("sent", self.rules(p))
-        self.assertEqual(chk.word_count(p), actual)
 
     def test_checador_key_correct(self):
         self.target()
@@ -325,62 +308,6 @@ class CheckerTests(unittest.TestCase):
             code = chk.main()
         self.assertEqual(code, 0)
         self.assertTrue(any("R90-cc-log-de-execucao.md" in line for line in out), out)
-
-class ContractStepFourCommand(unittest.TestCase):
-    """T15: o comando do passo 4 troca o número no cabeçalho e no rodapé, sem tocar no corpo.
-
-    O comando é lido do contrato, e não copiado: se o contrato mudar, o teste acompanha.
-    """
-
-    ROOT = pathlib.Path(__file__).resolve().parents[1]
-    V20 = "sed -i '' 's/0000/{n}/g' docs/reviews/R{n}-{lado}.md"
-    HEADER = "<!-- sent: 0000 palavras (LC_ALL=C wc -w neste arquivo, cabeçalho incluído) -->"
-    FOOTER = "- **sent**: 0000 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído)."
-    BODY_MARKER = "O passo 4 troca `0000` pelo número, e este corpo não muda."
-    BODY_PROSE = "sent: 0000 palavras aparece aqui como prosa, numa linha que não é cabeçalho."
-
-    def contract_command(self):
-        text = (self.ROOT / "docs" / "auto_critique2.md").read_text(encoding="utf-8")
-        step = next(line for line in text.splitlines() if "**Cabeçalho.**" in line)
-        return re.search(r"Executa: `(sed [^`]+)`", step).group(1)
-
-    def run_step_four(self, template, token):
-        # token: o nome do placeholder do contador no comando, lido do próprio comando
-        body = "\n".join(["# R9 — exemplo", "", self.BODY_MARKER, "", self.BODY_PROSE, ""])
-        text = self.HEADER + "\n" + body + "\n## Contagens\n\n" + self.FOOTER + "\n"
-        with tempfile.TemporaryDirectory() as tmp:
-            path = pathlib.Path(tmp) / "R9-cc.md"
-            path.write_text(text, encoding="utf-8")
-            # o caminho é o último token do comando: desde a v29 ele é `{resposta}`, e o
-            # teste lê o que o contrato escreve em vez de fixar a forma do caminho
-            cmd = template.rsplit(" ", 1)[0] + " " + str(path)
-            cmd = cmd.replace("{%s}" % token, "1234")
-            subprocess.run(shlex.split(cmd), check=True, capture_output=True)
-            return path.read_text(encoding="utf-8").splitlines()
-
-    def run_contract_command(self):
-        command = self.contract_command()
-        token = re.search(r"\\1 \{(\w+)\}", command).group(1)
-        return self.run_step_four(command, token)
-
-    def test_header_and_footer_get_the_count(self):
-        lines = self.run_contract_command()
-        self.assertEqual(lines[0], self.HEADER.replace("0000", "1234"))
-        self.assertIn("- **sent**: 1234 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).", lines)
-
-    def test_marker_in_backticks_survives(self):
-        lines = self.run_contract_command()
-        self.assertIn(self.BODY_MARKER, lines)
-
-    def test_key_quoted_in_prose_survives(self):
-        lines = self.run_contract_command()
-        self.assertIn(self.BODY_PROSE, lines)
-
-    def test_control_v20_command_does_touch_the_body(self):
-        # controle: a v20 troca o marcador em qualquer lugar; se ela não tocasse o corpo,
-        # o fixture não estaria provando nada
-        lines = self.run_step_four(self.V20, "n")
-        self.assertNotIn(self.BODY_MARKER, lines)
 
 
 if __name__ == "__main__":

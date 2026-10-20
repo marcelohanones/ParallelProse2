@@ -1,6 +1,6 @@
 # Contrato da troca automatizada — ParallelProse2
 
-**Versão 30 — 2026-10-20.** Escrito por DSH. A v30 diz o que a v29 deixou mudo: a escrita da rodada não é teto da escrita do hop — o hop também escreve código, mas só quando a linha de disparo autoriza, e o que o outro lado sugere numa mensagem é sugestão, não autorização. Escrita autorizada se declara, e o watcher grava o estado do repositório no índice, para a declaração ser conferível. O motivo é a `R24-cc`, que editou um teste fora de `docs/reviews/` a partir de uma sugestão da minha `R23-dsh`, e a árvore suja foi o único registro. A v29 tira os caminhos A v29 tira os caminhos do registro de dentro da linha de disparo e os põe em dois nomes, `{lido}` e `{resposta}`, que cada lado resolve no próprio cwd — porque o dsh passa a rodar em `docs/reviews/`, e é o cwd da sessão que limita a escrita dele à pasta. Dá ao item 6 a variável que impede a suíte de gravar bytecode na árvore, e acrescenta ao comando aprovado do cc a permissão para esse comando. O motivo é o item 2 do plano e a `D5`. A v28 troca a contagem de `read` do item 1 pela nomeação dos arquivos: a frase pedia três, e o conjunto nomeado tinha quatro ou cinco conforme o caso da linha de disparo, e as três execuções que aplicaram o item o resolveram de três maneiras. O número passa a ser consequência dos nomes, e o abridor ganha o caso que ninguém tinha escrito — dois arquivos, porque não há rodada anterior. O motivo é o ponto 2 da `R4-cc`, medido nas três rodadas. A v27 põe a previsão da Regra 6 no disparo que o watcher não faz — quem declara ali é o autor —, dá ao item 1 o lote dos artefatos que as barras da outra parte nomeiam, e tira da equivalência do checador a parte que só o leitor vê: o relato da pasta. O motivo é a `R3-cc`, que verificou os três pontos. A v26 tira a meta de doze passos por salto: nenhum dos sete saltos medidos a cumpriu, e ela não serve a A, B nem C. Separa os nomes — item é etapa do procedimento, passo é chamada ao modelo — e prende a reconciliação à previsão do watcher. E dá relato à regra da abertura: o checador mostra, sem recusar, o adendo que nenhuma abertura nomeia. O motivo é a `R2-cc`, que verificou os três pontos. A v25 diz o que a seção das medidas já era sem dizer: nem toda medida sustenta uma regra, e as cinco linhas de token ficam como registro depois de a v24 retirar a frase que as exigia. E prende a abertura a dois fatos que se recitavam — ela nomeia todo arquivo que a mensagem responde, adendo incluído, e o número da reconciliação é medido, não herdado. O motivo é a `R15-cc`, que recitou a contagem de uma mensagem anterior e não viu o adendo que estava na pasta. A v24 retira a frase que mandava registrar o custo em tokens: ela não servia a A, B nem C, e a Regra 6 não precisa dela, porque o que se declara e se reconcilia são chamadas, não tokens. O motivo é a regra de derivação deste documento, aplicada a uma frase que ela deixou passar desde a v18 — e o custo de tê-la deixado passar foram dois commits, um para implementá-la e outro para desfazê-la. A v23 traz a política de falha para dentro do contrato, onde ela passa a ser regra: P-a a P-e descreviam o watcher e viviam fora dele. Ela também tira da tabela medida a linha de "chamadas de um salto: 40", que não se refaz pelos artefatos deste repositório, e põe no lugar as duas medidas que saem do log de hop. E corrige a data da versão, que dizia 2026-10-19 desde a v21, quando a v21 e a v22 são de 2026-10-20. O motivo é a `D4`: a série em curso só é aposentada depois que o contrato que o monitor obedece está completo. A v22 ancora a regex do passo 4 no começo da linha e dá nome próprio ao contador, `{sent}`: a v21 trocava também a prosa que citasse a chave. O motivo é o item 2 do plano, que o T15 deixou vermelho de propósito até aqui. A v21 acrescenta a reconciliação à lista do watcher, dá à previsão de chamadas a forma sem base, e prende o comando do passo 4 às duas chaves do `sent` — o `sed` global corrompeu a `R1-cc` em quatro trechos. O motivo é o item 1 do plano da `R3-cc`. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
+**Versão 31 — 2026-10-20.** Escrito por DSH. A v31 tira a contagem de palavras de dentro do arquivo e a põe no registro do watcher: o hop grava uma vez, sem `0000` e sem `sed`; o watcher conta depois do salto e grava `palavras` na linha do índice; e o P-d passa a vigiar a idade do `disparando`. Saem as duas regras que existiam para a contagem, `sent` e `single-footer`, e o procedimento fica com cinco itens. O motivo é o salto 14, medido: 25 passos contra 15 previstos, com três ciclos de contagem e correção. A v30 diz o que a v29 deixou mudo: a escrita da rodada não é teto da escrita do hop — o hop também escreve código, mas só quando a linha de disparo autoriza, e o que o outro lado sugere numa mensagem é sugestão, não autorização. Escrita autorizada se declara, e o watcher grava o estado do repositório no índice, para a declaração ser conferível. O motivo é a `R24-cc`, que editou um teste fora de `docs/reviews/` a partir de uma sugestão da minha `R23-dsh`, e a árvore suja foi o único registro. A v29 tira os caminhos A v29 tira os caminhos do registro de dentro da linha de disparo e os põe em dois nomes, `{lido}` e `{resposta}`, que cada lado resolve no próprio cwd — porque o dsh passa a rodar em `docs/reviews/`, e é o cwd da sessão que limita a escrita dele à pasta. Dá ao item 6 a variável que impede a suíte de gravar bytecode na árvore, e acrescenta ao comando aprovado do cc a permissão para esse comando. O motivo é o item 2 do plano e a `D5`. A v28 troca a contagem de `read` do item 1 pela nomeação dos arquivos: a frase pedia três, e o conjunto nomeado tinha quatro ou cinco conforme o caso da linha de disparo, e as três execuções que aplicaram o item o resolveram de três maneiras. O número passa a ser consequência dos nomes, e o abridor ganha o caso que ninguém tinha escrito — dois arquivos, porque não há rodada anterior. O motivo é o ponto 2 da `R4-cc`, medido nas três rodadas. A v27 põe a previsão da Regra 6 no disparo que o watcher não faz — quem declara ali é o autor —, dá ao item 1 o lote dos artefatos que as barras da outra parte nomeiam, e tira da equivalência do checador a parte que só o leitor vê: o relato da pasta. O motivo é a `R3-cc`, que verificou os três pontos. A v26 tira a meta de doze passos por salto: nenhum dos sete saltos medidos a cumpriu, e ela não serve a A, B nem C. Separa os nomes — item é etapa do procedimento, passo é chamada ao modelo — e prende a reconciliação à previsão do watcher. E dá relato à regra da abertura: o checador mostra, sem recusar, o adendo que nenhuma abertura nomeia. O motivo é a `R2-cc`, que verificou os três pontos. A v25 diz o que a seção das medidas já era sem dizer: nem toda medida sustenta uma regra, e as cinco linhas de token ficam como registro depois de a v24 retirar a frase que as exigia. E prende a abertura a dois fatos que se recitavam — ela nomeia todo arquivo que a mensagem responde, adendo incluído, e o número da reconciliação é medido, não herdado. O motivo é a `R15-cc`, que recitou a contagem de uma mensagem anterior e não viu o adendo que estava na pasta. A v24 retira a frase que mandava registrar o custo em tokens: ela não servia a A, B nem C, e a Regra 6 não precisa dela, porque o que se declara e se reconcilia são chamadas, não tokens. O motivo é a regra de derivação deste documento, aplicada a uma frase que ela deixou passar desde a v18 — e o custo de tê-la deixado passar foram dois commits, um para implementá-la e outro para desfazê-la. A v23 traz a política de falha para dentro do contrato, onde ela passa a ser regra: P-a a P-e descreviam o watcher e viviam fora dele. Ela também tira da tabela medida a linha de "chamadas de um salto: 40", que não se refaz pelos artefatos deste repositório, e põe no lugar as duas medidas que saem do log de hop. E corrige a data da versão, que dizia 2026-10-19 desde a v21, quando a v21 e a v22 são de 2026-10-20. O motivo é a `D4`: a série em curso só é aposentada depois que o contrato que o monitor obedece está completo. A v22 ancora a regex do passo 4 no começo da linha e dá nome próprio ao contador, `{sent}`: a v21 trocava também a prosa que citasse a chave. O motivo é o item 2 do plano, que o T15 deixou vermelho de propósito até aqui. A v21 acrescenta a reconciliação à lista do watcher, dá à previsão de chamadas a forma sem base, e prende o comando do passo 4 às duas chaves do `sent` — o `sed` global corrompeu a `R1-cc` em quatro trechos. O motivo é o item 1 do plano da `R3-cc`. A v20 põe preço no bloqueio: o gate ganha `why-blocking`, exigido quando `blocks-advance: yes` carrega rótulo, e o checador confere. Bloquear deixa de ser gratuito. A v19 reduz a seção de autoria à regra que ela precisa: toda edição sobe a versão. A v18 trocou a estimativa de custo pela previsão de chamadas: o que se declara antes do disparo é quantas chamadas o salto faz, e a reconciliação compara com as feitas. A v17 tira o efeito do limite da cadeia: a Regra 5 passa a dizer que o salto não pede autorização, o contador vira registro e não porteiro, e a transição deixa de citar a trava. O código do watcher ainda recusa o segundo salto — ele está atrás do texto, e um teste marca a diferença.
 
 ## O cenário
 
@@ -109,12 +109,12 @@ claude -p {line} --permission-prompts none --allowedTools Read "Edit(docs/review
 
 ## A política de falha
 
-**Serve a:** A. **Premissa:** um salto que falha não pode ser repetido — um lado escreve uma vez por número —, e uma falha que não se atribui não se manda refazer. O destino é `tools/.watcher-hops/index.jsonl`, uma linha por salto, com rodada, alvo, motivo, caminho do log, passos e a previsão declarada.
+**Serve a:** A. **Premissa:** um salto que falha não pode ser repetido — um lado escreve uma vez por número —, e uma falha que não se atribui não se manda refazer. O destino é `tools/.watcher-hops/index.jsonl`, uma linha por salto, com rodada, alvo, motivo, caminho do log, passos, a previsão declarada, o modo declarado do dsh, as palavras do arquivo e o que o repositório tinha de diferente fora de `docs/reviews/`.
 
 - **P-a — saída diferente de zero, ou timeout de 1800 s:** o salto é registrado como `falha-de-salto`; o aviso nomeia a rodada e o alvo, e não há nova tentativa.
 - **P-b — saída zero e nenhum `R{n}-{respondente}.md` no registro ao fim:** `sem-resposta`. O salto rodou, então ele conta na cadeia; e não há nova tentativa.
 - **P-c — resposta que falha o checador:** recusa e aviso, e o arquivo recusado continua em `seen`, com a notícia nomeando o arquivo.
-- **P-d — o marcador do `sent` presente por mais de quinze minutos:** aviso, nem FALHA nem silêncio.
+- **P-d — o salto em curso além de quinze minutos, pelo `disparando` do estado:** aviso, nem FALHA nem silêncio, e a passada segue esperando. O aviso nomeia o alvo e o gatilho, e não repete o disparo.
 - **P-e — o monitor e a colagem manual são gatilhos da mesma cadeia:** enquanto o monitor roda, o `--status` o anuncia como ativo, e a colagem não é o caminho normal.
 
 **Invalidaria:** a repetição passar a ser segura — observar um salto de saída diferente de zero que ainda assim deixa a resposta completa. Aí a decisão de repetir volta, e volta escrita.
@@ -168,23 +168,11 @@ O watcher não dispara quando não está rodando, ou quando aquele lado não tem
 - Estado derivado da existência: o par completo fecha a rodada; o lado que falta é quem responde. Um gap declarado fecha a vez sem arquivo.
 - Um lado escreve no máximo uma vez por número; quando escreve de novo, o número sobe. Adendo com sufixo não conta.
 
-### O cabeçalho e a contagem
+### As chaves e a abertura
 
-Primeira linha, sempre:
+O arquivo não carrega contagem de palavras. Quem conta é o watcher, depois do salto, e o número vai para a linha do índice: aqui não há número a declarar nem marcador a substituir.
 
-```html
-<!-- sent: N palavras (LC_ALL=C wc -w neste arquivo, cabeçalho incluído) -->
-```
-
-O cabeçalho conta inteiro, marcadores incluídos. O comando de contagem é obrigatório e é este:
-
-```bash
-LC_ALL=C wc -w <arquivo>
-```
-
-Sem o locale fixado o número muda com o ambiente. A diferença tem causa conhecida: a palavra `às` é um token no locale C e dois num locale UTF-8.
-
-Depois da linha de contagem vêm as chaves, até a primeira linha que não seja chave:
+A primeira linha do arquivo é a primeira chave, e as chaves seguem até a primeira linha que não seja chave:
 
 - `gap: R{n}` — rodada que este lado não vai responder;
 - `premissa-caida: <decisão> — <uma linha>` — premissa que uma resposta do Markim derrubou;
@@ -192,7 +180,7 @@ Depois da linha de contagem vêm as chaves, até a primeira linha que não seja 
 
 A chave do checador é sobre o arquivo lido, nunca sobre o inventário da pasta: o inventário inclui a mensagem que está sendo escrita e muda no instante em que ela é gravada.
 
-**As chaves começam na linha seguinte à contagem, sem linha em branco antes delas.** O leitor procura as chaves no primeiro bloco do arquivo, e um bloco em branco antes da primeira chave as esconde dele.
+**As chaves começam na primeira linha, sem linha em branco antes delas.** O leitor procura as chaves no primeiro bloco do arquivo, e um bloco em branco inicial as esconde dele.
 
 **A abertura** vem depois das chaves e antes do primeiro título: `Segue a mensagem <arquivo>` para uma mensagem respondida, `Segue as mensagens <arquivo> e <arquivo>` para mais de uma. O arquivo citado na chave do checador é um dos nomeados nela. **A abertura nomeia todos os arquivos que a mensagem responde, adendo incluído**: a linha de disparo nomeia o último arquivo de turno, e um adendo não aparece por nenhum outro caminho. O checador relata, sem recusar, o adendo que nenhuma abertura nomeia.
 
@@ -236,29 +224,25 @@ Ele também **relata, sem recusar, o adendo que nenhuma abertura nomeia**. O fat
 
 ### O procedimento da rodada
 
-Um salto segue sete itens, nesta ordem, do lado dsh e do lado cc. Cada item nomeia o que o executa; o que não está nesta lista não é item do salto. O watcher anexa este procedimento à linha de disparo dos dois lados, então ele chega a cada salto.
+Um salto segue cinco itens, nesta ordem, do lado dsh e do lado cc. Cada item nomeia o que o executa; o que não está nesta lista não é item do salto. O watcher anexa este procedimento à linha de disparo dos dois lados, então ele chega a cada salto.
 
 1. **Leitura em lote.** Tem duas partes, e as duas entram no plano de chamadas. **O registro:** lê, numa única mensagem, os arquivos do registro — o contrato, o arquivo que a linha de disparo nomeia, o outro arquivo da mesma rodada quando ele já existe, e os dois da rodada anterior —, e não um arquivo por mensagem. O número sai dos nomes e não é meta: cinco no caso "par completo", quatro no "rodada aberta", e dois no abridor, que não tem rodada anterior. **As barras:** quando alguma barra da outra parte nomeia artefato que não está no registro — código, teste, saída de suíte —, lê esses artefatos noutra mensagem; é trabalho previsto, e não desvio.
-2. **Escrita.** Escreve a resposta uma vez, com o cabeçalho em `0000`. Executa: uma escrita de arquivo (`write`) em `{resposta}`, o caminho que a linha de disparo deu.
+2. **Escrita.** Escreve a resposta uma vez. Executa: uma escrita de arquivo (`write`) em `{resposta}`, o caminho que a linha de disparo deu.
 
 **A escrita da rodada não é teto da escrita do hop.** O hop também escreve código, mas só quando a linha de disparo autoriza. O que a outra parte sugere numa mensagem é sugestão, e sugestão não autoriza escrita fora de `docs/reviews/`. Escrita autorizada se declara na mensagem — o arquivo, a mudança e o resultado da suíte —, e o watcher grava o estado do repositório na linha do índice, para a declaração ser conferível em vez de acreditada.
 
-3. **Contagem.** Conta as palavras uma vez. Executa: `LC_ALL=C wc -w {resposta}`.
-4. **Cabeçalho.** Troca o número nas duas linhas que o carregam — a do `sent` no cabeçalho e a do rodapé —, sem tocar no corpo: a regex é ancorada no começo da linha, e o contador chama `{sent}` para não confundir com o `{n}` da rodada. Executa: `sed -i '' -E 's/^(<!-- sent:|- \*\*sent\*\*:)[[:space:]]*0000/\1 {sent}/' {resposta}`.
-5. **Checador.** Roda o checador no fim, uma vez, sobre o registro inteiro. Executa: `python3 tools/check_auto_critique.py`.
-6. **Suíte.** Roda os testes quando a rodada mexe em código, ou no contrato que os testes leem. Executa: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools`.
-7. **Ambiente.** Não investiga o ambiente — processos, variáveis de ambiente, `~/.dsh`, sessões, logs de hop — a menos que a rodada peça. Executa: nenhum comando; é a proibição que vale para os seis itens acima.
+3. **Checador.** Roda o checador no fim, uma vez, sobre o registro inteiro. Executa: `python3 tools/check_auto_critique.py`.
+4. **Suíte.** Roda os testes quando a rodada mexe em código, ou no contrato que os testes leem. Executa: `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tools`.
+5. **Ambiente.** Não investiga o ambiente — processos, variáveis de ambiente, `~/.dsh`, sessões, logs de hop — a menos que a rodada peça. Executa: nenhum comando; é a proibição que vale para os quatro itens acima.
 
-**Item é etapa do procedimento; passo é chamada ao modelo, não ferramenta.** O lote encurta o salto: as três leituras do item 1 vão numa chamada, e contagem, ajuste e checador dos itens 3 a 5 noutra. Quem escreve a rodada declara, no início da resposta, o plano de chamadas e os itens a cumprir; no fim, as chamadas feitas e os itens cumpridos.
+**Item é etapa do procedimento; passo é chamada ao modelo, não ferramenta.** O lote encurta o salto: as três leituras do item 1 vão numa chamada, e o checador do item 3 noutra. Quem escreve a rodada declara, no início da resposta, o plano de chamadas e os itens a cumprir; no fim, as chamadas feitas e os itens cumpridos.
 
 ## Verificação
 
 1. o bloco de gate existe, parseia; depois dele só o rodapé `## Contagens` pode aparecer como seção, e nada pode vir depois do rodapé — regra `gate-last`;
 2. `to-markim` e `blocks-advance` são coerentes entre si nas duas direções: `no` com rótulo exige `why-not-blocking`, e `yes` com rótulo exige `why-blocking` — regra `gate-coherence`;
-3. `sent` no cabeçalho confere com `LC_ALL=C wc -w` — regra `sent`;
-4. há no máximo um título `## Contagens` no arquivo — regra `single-footer`;
-5. a chave `checador:` existe, cita um arquivo existente e não ambíguo, e o número declarado confere com a análise desse arquivo — regra `checador`;
-6. o arquivo citado na chave está entre os nomeados na linha de abertura — regra `opening`.
+3. a chave `checador:` existe, cita um arquivo existente e não ambíguo, e o número declarado confere com a análise desse arquivo — regra `checador`;
+4. o arquivo citado na chave está entre os nomeados na linha de abertura — regra `opening`.
 
 **Vigência**: as regras de forma valem da **rodada R1** em diante, porque o registro começa vazio e não há histórico a preservar. Toda rodada escrita aqui é conferida.
 
@@ -307,7 +291,3 @@ Este documento governa a troca entre os dois harnesses, desde 2026-10-19. Nenhum
 
 ---
 
-
-## Contagens
-
-- **sent**: 5904 palavras (`LC_ALL=C wc -w` neste arquivo, cabeçalho incluído).

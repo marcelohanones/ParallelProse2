@@ -28,6 +28,7 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -40,7 +41,7 @@ STATE = ROOT / "tools" / ".watcher-state.json"
 HOP_LOGS = ROOT / "tools" / ".watcher-hops"
 DSH_BIN = "dsh"
 TIMEOUT = 1800
-PENDING_LIMIT = 15 * 60  # P-d: rascunho com o marcador por mais disso vira aviso
+PENDING_LIMIT = 15 * 60  # P-d: salto em curso por mais disso vira aviso, pelo registro disparando
 POLL_SECONDS = 10  # o monitor consulta a pasta a cada dez segundos
 NOTICES_KEPT = 20
 # acrescentado à linha de disparo, nos dois lados: aponta o procedimento do contrato em vez de
@@ -215,6 +216,20 @@ def run_argv(argv: list[str], timeout: int, env: dict | None = None,
     return True, "", output
 
 
+def pd_timer(pending: dict) -> threading.Timer:
+    """P-d: o salto em curso passa de PENDING_LIMIT segundos. Aviso no chat, nem FALHA nem silêncio.
+
+    O registro `disparando` é gravado antes do subprocesso e apagado no retorno; o aviso sai
+    de um temporizador, porque a passada fica bloqueada enquanto o salto roda.
+    """
+    text = "P-d: salto %s em curso há mais de %g min (gatilho %s, desde %s): aviso, nem FALHA nem silêncio" % (
+        pending["target"], PENDING_LIMIT / 60, pending["trigger"], pending["at"])
+    timer = threading.Timer(PENDING_LIMIT, lambda: print(text, flush=True))
+    timer.daemon = True
+    timer.start()
+    return timer
+
+
 def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int, target: str,
              hop: str, reviews: Path):
     # o trecho do procedimento sai com o caminho do contrato no cwd de quem recebe
@@ -299,7 +314,8 @@ def changed_outside_reviews(root: Path | None = None) -> list[str] | None:
 
 
 def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, reason: str,
-               log_path: Path | None, passos: int | None = None, previsto: float | None = None) -> None:
+               log_path: Path | None, passos: int | None = None, previsto: float | None = None,
+               palavras: int | None = None) -> None:
     """Uma linha por salto: rodada, alvo, motivo, caminho do log, e os passos contra a previsão."""
     if hop_logs is None:
         return
@@ -308,7 +324,7 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "responder": plan["responder"],
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
-             "passos": passos, "previsto": previsto,
+             "passos": passos, "previsto": previsto, "palavras": palavras,
              "modo": FIXED_DSH_MODE if plan["responder"] == "dsh" else None,
              "fora_de_reviews": changed_outside_reviews()}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
@@ -398,13 +414,6 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
     # rascunho (cabeçalho ainda com 0000) não é turno: espera, e não entra em seen
     drafts = {e["name"] for e in turns if in_writing(e["path"])}
     turns = [e for e in turns if e["name"] not in drafts]
-    waiting = state.get("pending", {})
-    state["pending"] = {name: waiting.get(name, {"since": time.time(), "warned": False}) for name in drafts}
-    for name in drafts:
-        entry = state["pending"][name]
-        if not entry["warned"] and time.time() - entry["since"] > PENDING_LIMIT:
-            entry["warned"] = True
-            note("%s segue em 0000 há mais de 15 min: aviso, não FALHA" % name)
     if not turns:
         result["action"] = "pending" if drafts else ("notice" if (changed or gone or addenda) else "idle")
         return result
@@ -484,8 +493,10 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
                            "trigger": trigger["name"], "target": target, "previsto": previsto,
                            "at": time.strftime("%Y-%m-%dT%H:%M:%S")}
     save_now()
+    watch_hop = pd_timer(state["disparando"])
     ok, why, argv, output = dispatch(plan["responder"], plan["line"], state, dsh_bin, timeout,
                                      target, hop, reviews)
+    watch_hop.cancel()
     state.pop("disparando", None)  # o salto voltou: não é mais um salto em curso
     log_path = write_hop_log(hop_logs, trigger, plan, output) if (hop_logs is not None and output) else None
     if not ok:
@@ -522,7 +533,9 @@ def run_pass(reviews: Path, state: dict, *, dsh_bin: str = DSH_BIN, timeout: int
         note("aviso no stderr do lado cc: %s" % line[:200])
 
     passos = passos_of(output)
-    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto)
+    palavras = chk.word_count(reviews / target)  # a contagem é do watcher, sobre o arquivo que o hop gravou
+    record_hop(hop_logs, plan, trigger, "salto", "", log_path, passos=passos, previsto=previsto,
+               palavras=palavras)
     if passos is not None and previsto is not None and passos > 2 * previsto:
         note("salto %s: %d passos, previsto %g: fora do previsto" % (target, passos, previsto))
     chain["count"] += 1
