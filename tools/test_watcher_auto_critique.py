@@ -687,6 +687,7 @@ class WatcherTests(unittest.TestCase):
 
     def test_state_commands_refuse_while_a_live_monitor_holds_the_state(self):
         # 3.1: --reset, --set-cc-cmd e --new-series recusam com o monitor vivo (pid desta sessão)
+        (self.root / "monitor.lock").write_text(str(os.getpid()), encoding="utf-8")
         self.state["monitor"] = {"pid": os.getpid(), "since": "agora"}
         self.state["chain"]["count"] = 4
         w.save_state(self.state_path, self.state)
@@ -749,6 +750,7 @@ class WatcherTests(unittest.TestCase):
 
     def test_second_monitor_is_refused_while_one_is_alive(self):
         # 1.1 da R8-dsh: um segundo --monitor não sobe com o primeiro vivo
+        (self.root / "monitor.lock").write_text(str(os.getpid()), encoding="utf-8")
         self.state["monitor"] = {"pid": os.getpid(), "since": "agora"}
         w.save_state(self.state_path, self.state)
         code = w.main(["--state", str(self.state_path), "--reviews", str(self.reviews),
@@ -783,6 +785,22 @@ class WatcherTests(unittest.TestCase):
                        lock_path=lock)
         self.assertEqual(code, 0)
         self.assertFalse(lock.exists(), "a trava própria sai na saída")
+
+    def test_a_live_lock_alone_refuses_the_state_commands(self):
+        # 3.2 da R14-dsh: a trava é a autoridade; sem marcador, uma trava viva já recusa o comando
+        (self.root / "monitor.lock").write_text(str(os.getppid()), encoding="utf-8")
+        self.state["chain"]["count"] = 4
+        w.save_state(self.state_path, self.state)
+        base = ["--state", str(self.state_path), "--reviews", str(self.reviews)]
+        self.assertEqual(w.main(base + ["--reset"]), 1)
+        self.assertEqual(w.load_state(self.state_path)["chain"]["count"], 4)
+
+    def test_status_names_the_lock_as_the_source(self):
+        (self.root / "monitor.lock").write_text(str(os.getppid()), encoding="utf-8")
+        out = []
+        with mock.patch("builtins.print", lambda *a, **k: out.append(" ".join(str(x) for x in a))):
+            w.main(["--state", str(self.state_path), "--status", "--hop-logs", str(self.root / "h")])
+        self.assertTrue(any("pela trava" in line for line in out), out)
 
     def test_reset_zeroes_the_counter_and_leaves_a_notice(self):
         w.save_state(self.state_path, self.state)

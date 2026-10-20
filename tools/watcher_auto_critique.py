@@ -507,10 +507,18 @@ def pid_alive(pid: int) -> bool:
     return True
 
 
-def monitor_alive(state: dict) -> bool:
-    """O monitor está vivo se o marcador existe e o pid responde; marcador preso não conta."""
-    marker = state.get("monitor")
-    return bool(marker) and pid_alive(marker["pid"])
+def lock_holder(lock: Path) -> int | None:
+    """O pid que segura a trava, se ele ainda vive; trava de pid morto não segura nada."""
+    try:
+        holder = int(lock.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return None
+    return holder if pid_alive(holder) else None
+
+
+def monitor_alive(lock: Path) -> bool:
+    """O monitor está vivo quando a trava é de um pid vivo. O marcador é proveniência, não autoridade."""
+    return lock_holder(lock) is not None
 
 
 def acquire_lock(lock: Path) -> bool:
@@ -615,6 +623,7 @@ def parse_args(argv=None):
 def main(argv=None) -> int:
     args = parse_args(argv)
     state_path = Path(args.state)
+    lock = state_path.parent / "monitor.lock"  # a autoridade sobre "há monitor vivo"
     state = load_state(state_path)
 
     if args.status:
@@ -626,8 +635,9 @@ def main(argv=None) -> int:
         for line in state["notices"][-5:]:
             print("  " + line)
         monitor = state.get("monitor")
-        if monitor and monitor_alive(state):
-            print("monitor ativo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
+        holder = lock_holder(lock)
+        if holder is not None:
+            print("monitor ativo pela trava (pid %s)" % holder)
         elif monitor:
             print("monitor marcado, sem processo (pid %s, desde %s)" % (monitor["pid"], monitor["since"]))
         if state.get("ambiguous"):
@@ -642,8 +652,8 @@ def main(argv=None) -> int:
                     entry.get("passos"), entry.get("previsto")))
         return 0
 
-    if monitor_alive(state) and (args.reset or args.set_cc_cmd or args.new_series):
-        print("monitor ativo (pid %s): pare-o antes de mexer no estado" % state["monitor"]["pid"])
+    if monitor_alive(lock) and (args.reset or args.set_cc_cmd or args.new_series):
+        print("monitor ativo pela trava (pid %s): pare-o antes de mexer no estado" % lock_holder(lock))
         return 1
 
     if args.reset:
@@ -657,8 +667,8 @@ def main(argv=None) -> int:
         return 0
 
     if args.monitor:
-        if monitor_alive(state):
-            print("monitor ativo (pid %s): ja ha um monitor nesta pasta" % state["monitor"]["pid"])
+        if monitor_alive(lock):
+            print("monitor ativo pela trava (pid %s): ja ha um monitor nesta pasta" % lock_holder(lock))
             return 1
         return watch(Path(args.reviews), state_path, Path(args.hop_logs), dsh_bin=args.dsh_bin,
                      timeout=args.timeout)
