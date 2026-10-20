@@ -4,13 +4,14 @@ Para a regra "o arquivo na pasta é o start do outro harness" valer, falta isto.
 
 1. **Um monitor contínuo.** Hoje o watcher roda uma passada e sai. Precisa de um processo que observe `docs/reviews/` e detecte o arquivo novo sem ninguém executá-lo. Sem isso, a pasta não é start de nada.
 2. **Nenhuma colagem manual.** A transição manda o Markim colar a linha de disparo. Ela deve virar recurso de emergência, fora do fluxo normal.
-3. **Ordem de arquivos novos.** Se chegam dois arquivos não vistos, o watcher recusa os dois. Cada arquivo que chega é um start, então os novos devem ser processados em ordem, sem recusar por ambiguidade.
-4. **Um start, uma vez.** O watcher marca o arquivo antes de disparar, mas a marcação depende do estado salvo no fim da passada: uma queda no meio pode repetir o start.
-5. **Falha de salto com política.** Se o outro lado falha ao responder, o watcher registra o erro e para ali. Falta destino: repetir o start, ou marcar o arquivo para olhar humano.
+3. **Ordem de arquivos novos.** Se chegam dois arquivos não vistos, o watcher recusa os dois. Processar em ordem não serve: `dispatch_line` só está correta quando o gatilho é o último arquivo da rodada, e o par processado em ordem dispara duas vezes, uma delas para o lado errado. O par colapsa num gatilho só — o último —, e o alvo é `R{n+1}-{quem abriu}`; a ordem vem da citação "Segue a mensagem", não do nome nem do `mtime`.
+4. **Um start, uma vez.** O watcher marca o arquivo e grava o estado antes do disparo, então a queda não repete o start: ela o perde em silêncio. Falta o `disparando` com id, e no reinício um `disparando` sem resultado vira "salto interrompido, olhar humano", sem novo disparo.
+5. **Falha de salto com política.** A falha já é terminal: o arquivo está em `seen` e a passada seguinte não repete o disparo. Falta o destino durável — um registro por rodada, com rodada, alvo, motivo e caminho do log —, e o aviso precisa nomear a rodada e o alvo, que hoje ele não nomeia.
 6. **O `passa` vira arquivo.** Hoje o `passa` é digitado no chat. Para a automação valer, ele precisa ser um sinal que o harness detecte sozinho.
 7. **Permissões para rodar sozinho.** O dsh roda com `workspace-write` e aprovação `ask`, e o cc com o comando aprovado. Falta verificar num salto que começa sem nenhum humano por perto.
+8. **Prontidão antes da marca.** O watcher marca o arquivo em `seen` antes de checar, então um arquivo observado a meio do procedimento — cabeçalho em `0000`, contagem, `sed` — é marcado, recusado por `FALHA` e depois lido como reescrita: a rodada morre em silêncio. Prontidão (`sent` igual a `LC_ALL=C wc -w`, sha estável, checador limpo) decide antes de qualquer marca.
 
-Os itens 1, 3, 4 e 5 são código do watcher. O 2 e o 6 mexem em regra. O 7 é teste.
+Os itens 1, 3, 4, 5 e 8 são código do watcher. O 2 e o 6 mexem em regra. O 7 é teste.
 
 ## Estado da implementação
 
@@ -40,7 +41,7 @@ Esta seção descreve o que existe agora. O registro de rodadas não é citado a
 - Permissão do cc: `Edit(docs/reviews/{target})` casou no último salto. Não verificado: `Grep`, `Glob` e as regras com padrão.
 
 **Autorização de saltos**
-- Cinco saltos automáticos autorizados nesta fase. Dois usados; restam três.
+- **D1, respondida pelo Markim em 2026-10-20:** sem teto. O contador de saltos relata, e não impede disparo. Confirma a Regra 5 do contrato; a linha anterior, que autorizava cinco saltos com dois usados, fica retirada.
 
 **Pendente, com quem**
 - **Markim:** a lista de capacidades liberadas para o salto do dsh — o que ele pode ler, escrever e executar. A recomendação medida é manter `workspace-write` para escrita e auditar leitura e shell no watcher sem bloquear.
