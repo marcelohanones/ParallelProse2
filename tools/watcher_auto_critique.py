@@ -165,6 +165,8 @@ def dsh_home() -> Path:
 
 # o único modo que o disparo aceita: read-only impede o dsh de gravar a própria resposta
 ACCEPTED_MODES = ("workspace-write",)
+# D9: o disparo do dsh fixa o modo, em vez de herdar o do ambiente; a recusa do valor declarado fica
+FIXED_DSH_MODE = "workspace-write"
 
 
 def declared_mode() -> str | None:
@@ -236,6 +238,8 @@ def dispatch(responder: str, line: str, state: dict, dsh_bin: str, timeout: int,
     # cadeia de pais com ps (que nao casa com o comando aprovado).
     env = dict(os.environ)
     env["WATCHER_HOP"] = hop
+    if responder == "dsh":
+        env["DSH_PERMISSION_MODE"] = FIXED_DSH_MODE
     ok, reason, output = run_argv(argv, timeout, env=env, cwd=cwd)
     return ok, reason, argv, output
 
@@ -282,7 +286,7 @@ def record_hop(hop_logs: Path | None, plan: dict, trigger: dict, status: str, re
              "target": "R%d-%s.md" % (plan["round"], plan["responder"]), "trigger": trigger["name"],
              "status": status, "reason": reason, "log": str(log_path) if log_path else None,
              "passos": passos, "previsto": previsto,
-             "modo": declared_mode() if plan["responder"] == "dsh" else None}
+             "modo": FIXED_DSH_MODE if plan["responder"] == "dsh" else None}
     with (hop_logs / "index.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry, ensure_ascii=False) + chr(10))
 

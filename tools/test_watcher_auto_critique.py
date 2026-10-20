@@ -859,7 +859,7 @@ class WatcherTests(unittest.TestCase):
             os.environ.pop("DSH_PERMISSION_MODE", None)
             self.run_pass(hop_logs=hops)
         entry = json.loads((hops / "index.jsonl").read_text().splitlines()[-1])
-        self.assertIsNone(entry["modo"], "sem a variável, o índice não afirma modo nenhum")
+        self.assertEqual(entry["modo"], "workspace-write", "o modo gravado é o fixado no disparo")
 
     def test_preflight_refuses_any_mode_but_workspace_write(self):
         for mode in ("read-only", "danger-full-access", "modo-desconhecido"):
@@ -867,6 +867,19 @@ class WatcherTests(unittest.TestCase):
                 ok, why = w.preflight()
             self.assertFalse(ok, mode)
             self.assertIn(mode, why)
+
+    def test_dsh_dispatch_fixes_the_mode_in_its_environment(self):
+        # D9: o dsh roda com workspace-write, mesmo sem a variável no ambiente do watcher
+        self.baseline()
+        make_round(self.reviews, "R2-cc.md", cites="R1-dsh.md")
+        out = self.root / "dsh-mode.txt"
+        probe = self.root / "dsh-mode"
+        probe.write_text("#!/usr/bin/env python3\nimport os\nopen(%r, 'w').write(os.environ.get('DSH_PERMISSION_MODE', ''))\n" % str(out), encoding="utf-8")
+        probe.chmod(0o755)
+        with mock.patch.dict(os.environ):
+            os.environ.pop("DSH_PERMISSION_MODE", None)
+            self.run_pass(dsh_bin=str(probe))
+        self.assertEqual(out.read_text(), "workspace-write")
 
     def test_absent_mode_is_not_declared_and_not_refused(self):
         with mock.patch.dict(os.environ):
