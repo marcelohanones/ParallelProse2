@@ -1,0 +1,7 @@
+{"rodada": 1, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": "", "estado_entregavel": "inalterado"}
+{"rodada": 2, "direcao": "dsh-para-claude", "resultado": "encerra", "check": "C8", "motivo": "2 rodadas seguidas sem mudança no entregável", "estado_entregavel": ""}
+{"rodada": 2, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": ""}
+{"rodada": 3, "direcao": "dsh-para-claude", "resultado": "aceita", "check": "", "motivo": ""}
+{"rodada": 4, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": ""}
+{"rodada": 5, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": ""}
+{"rodada": 6, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": ""}

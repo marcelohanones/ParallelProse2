@@ -1,0 +1,5 @@
+.claude-plugin/types/
+node_modules/
+answer.txt
+resposta_claude.txt
+resposta_dsh.txt

@@ -1,0 +1,6 @@
+{
+  "name": "auto_critique",
+  "version": "0.2.0",
+  "description": "Laço desta sessão com o dsh pela API: /auto_critique chat <id>, start N <prompt>, stop, status, chats",
+  "types": "./types/index.d.ts"
+}

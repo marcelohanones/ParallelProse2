@@ -31,3 +31,6 @@ tools/.watcher-series/
 # Claude Code machine-local settings (hook config carries absolute store paths)
 .claude/settings.local.json
 tools/monitor.lock
+
+# Runtime do laço auto_critique: token, cookie e log, não versionados
+tools/auto_critique/runtime/

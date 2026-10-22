@@ -1,0 +1,23 @@
+{
+  "_aviso": "PLACEHOLDER: substituir pela árvore da rodada. Existe só para destravar o caminho do gate.",
+  "brief": {
+    "path": "docs/ingest.md",
+    "sha256": "2c742f9c62ef67a43a375dd78d5add1997c840cb14164c91dc6cf463ef30229b"
+  },
+  "orcamento_rodadas": 6,
+  "sem_mudanca_limite": 2,
+  "materiais": [],
+  "nos": [
+    {
+      "id": "N0",
+      "ordem": 1,
+      "aberto": true,
+      "criterios": [
+        {
+          "id": "N0.c1",
+          "descricao": "placeholder"
+        }
+      ]
+    }
+  ]
+}

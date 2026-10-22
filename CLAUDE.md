@@ -28,7 +28,7 @@ Dois livros lado a lado. A execução é de um livro por vez; a comparação aco
 
 ## Processo
 
-- **Modo CRITIQUE:** descrito em `docs/modo_critique.md`. Antes de qualquer execução paga, numerar os pontos, verificar a afirmação da outra parte, prever o número de chamadas e fixar a barra. Nada que pertence ao Markim é decidido pelo CC.
+- **Modo CRITIQUE:** descrito em `docs/auto_critique/auto_critique.md`. Antes de qualquer execução paga, numerar os pontos, verificar a afirmação da outra parte, prever o número de chamadas e fixar a barra. Nada que pertence ao Markim é decidido pelo CC.
 - **Previsão de chamadas antes de gasto:** qualquer execução que gaste chamadas de API declara, antes, quantas chamadas espera fazer, e reconcilia depois com as que fez. O custo em tokens não se estima; o número de chamadas é o que se confere.
 - **Redesenho por causa:** agrupar problemas por causa, ordenar pelo fluxo, tratar um item por vez, com critérios checáveis sem modelo.
 - **Premissa escrita junto de cada decisão:** cada decisão registra o que a tornou necessária e o que a invalidaria.
@@ -39,4 +39,9 @@ Dois livros lado a lado. A execução é de um livro por vez; a comparação aco
 
 ## Contrato entre harnesses (CRITIQUE)
 
-A troca de mensagens entre Claude Code e dsh no modo CRITIQUE é regida por `docs/auto_critique2.md`. Leia antes de abrir ou responder uma rodada em `docs/reviews/`.
+A troca de mensagens entre Claude Code e dsh no modo CRITIQUE é regida por `docs/auto_critique/auto_critique.md`.
+
+> **Modo CRITIQUE.** Cada mensagem entre harnesses começa com o envelope definido em `docs/proposta_gate_critique.md`, seção 3.
+> Trabalhe só no nó indicado em `alvo`. Melhoria só entra na rodada se citar um `criterio` existente.
+> Não altere o brief nem o arquivo de estado da rodada.
+> Entregue a resposta entre `<<<MSG` e `MSG>>>`, sem texto fora dos marcadores.

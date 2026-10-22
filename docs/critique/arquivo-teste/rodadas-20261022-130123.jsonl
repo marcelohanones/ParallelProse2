@@ -1,0 +1,6 @@
+{"rodada": 1, "direcao": "claude-para-dsh", "resultado": "recusa", "check": "C1", "motivo": "linha inválida: '<<<MSG'", "estado_entregavel": ""}
+{"rodada": 1, "direcao": "claude-para-dsh", "resultado": "recusa", "check": "C1", "motivo": "linha inválida: '<<<MSG'", "estado_entregavel": ""}
+{"rodada": 1, "direcao": "claude-para-dsh", "resultado": "recusa", "check": "C1", "motivo": "falta a linha ---", "estado_entregavel": ""}
+{"rodada": 1, "direcao": "claude-para-dsh", "resultado": "aceita", "check": "", "motivo": "", "estado_entregavel": "inalterado"}
+{"rodada": 2, "direcao": "claude-para-dsh", "resultado": "encerra", "check": "C8", "motivo": "2 rodadas seguidas sem mudança no entregável", "estado_entregavel": ""}
+{"rodada": 2, "direcao": "claude-para-dsh", "resultado": "encerra", "check": "C8", "motivo": "2 rodadas seguidas sem mudança no entregável", "estado_entregavel": ""}
